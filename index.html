@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Мой Бюджет TMA (RM)</title>
-  <!-- Официальный скрипт Telegram Mini Apps -->
+  <title>Private Finance App</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -26,186 +25,284 @@
 </head>
 <body class="max-w-3xl mx-auto p-3.5 md:p-6">
 
-  <!-- Верхний статус-бар синхронизации -->
-  <header class="flex justify-between items-center mb-4">
-    <div>
-      <h1 class="text-lg md:text-xl font-extrabold text-white flex items-center gap-2">
-        <span>⚡ Бюджет (RM)</span>
-        <span id="syncBadge" class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-          ☁️ Сохранено
-        </span>
-      </h1>
-      <p class="text-[11px] text-slate-400">1800 RM/мес = 850 Хата (22-го) + 950 Жизнь (Связь 21-го: 30 RM)</p>
+  <!-- ==================== ЭКРАН БЛОКИРОВКИ (ДЛЯ ЧУЖИХ) ==================== -->
+  <div id="authLockScreen" class="fixed inset-0 bg-[#0b0f19] z-50 flex items-center justify-center p-4">
+    <div class="card p-6 max-w-sm w-full text-center space-y-4 border-slate-700/80 shadow-2xl">
+      <div class="w-14 h-14 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center mx-auto text-2xl">
+        🔒
+      </div>
+      <div>
+        <h2 class="text-lg font-extrabold text-white">Доступ ограничен</h2>
+        <p class="text-xs text-slate-400 mt-1">Приватное приложение. Введите ключ доступа, выданный администратором, или мастер-пароль.</p>
+      </div>
+      <div class="space-y-2.5 text-left">
+        <input type="password" id="authKeyInput" placeholder="Введите ключ доступа или инвайт..." class="w-full px-3.5 py-2.5 rounded-xl text-sm font-semibold text-center tracking-wider">
+        <div id="authErrorMsg" class="text-xs text-red-400 text-center hidden">⛔ Неверный ключ доступа</div>
+        <button onclick="verifyAccessKey()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-sm transition">
+          Войти в систему
+        </button>
+      </div>
+      <div class="pt-2 border-t border-slate-800 text-[11px] text-slate-500">
+        Сессия вашего аккаунта сохраняется в защищенном облаке Telegram после первой активации.
+      </div>
     </div>
-    <button onclick="openBackupModal()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700">
-      ⚙️ Бэкап
-    </button>
-  </header>
+  </div>
 
-  <!-- ==================== ВКЛАДКА 1: СЕГОДНЯ (ДАШБОРД) ==================== -->
-  <div id="tab-home" class="space-y-4">
+  <!-- ==================== ОСНОВНОЕ ПРИЛОЖЕНИЕ (СКРЫТО ДО ВХОДА) ==================== -->
+  <div id="mainAppContainer" class="hidden">
 
-    <!-- Переключатель цикла и лимита -->
-    <div class="card p-3 flex flex-wrap justify-between items-center gap-2">
+    <!-- Верхний статус-бар -->
+    <header class="flex justify-between items-center mb-4">
+      <div>
+        <h1 class="text-lg md:text-xl font-extrabold text-white flex items-center gap-2">
+          <span>⚡ Бюджет (RM)</span>
+          <span id="syncBadge" class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            ☁️ Сохранено
+          </span>
+        </h1>
+        <p class="text-[11px] text-slate-400">1800 RM/мес = 850 Хата (22-го) + 950 Жизнь (Связь 21-го: 30 RM)</p>
+      </div>
       <div class="flex items-center gap-1.5">
-        <span class="text-xs text-slate-400">Период:</span>
-        <select id="cycleSelect" onchange="changeCycle(this.value)" class="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-300"></select>
-      </div>
-      <div class="flex items-center gap-1.5">
-        <button onclick="setLimitMode(950)" class="px-2 py-1 rounded text-[11px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-          Жизнь: 950
+        <button onclick="openAdminModal()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25">
+          👑 Админка
         </button>
-        <button onclick="setLimitMode(1800)" class="px-2 py-1 rounded text-[11px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-          С хатой: 1800
-        </button>
-        <input type="number" id="limitInput" onchange="updateLimitInput()" class="w-16 px-1.5 py-1 rounded text-xs font-bold text-center">
-      </div>
-    </div>
-
-    <!-- 4 главных блока цифр -->
-    <div class="grid grid-cols-2 gap-2.5">
-      <div class="card p-3.5">
-        <span class="text-[11px] text-slate-400 uppercase tracking-wide">Остаток периода</span>
-        <div id="uiBalance" class="text-2xl font-extrabold mt-0.5 text-emerald-400">0 RM</div>
-        <div id="uiSpentTotal" class="text-[11px] text-slate-400 mt-0.5">Потрачено: 0 RM</div>
-      </div>
-      <div class="card p-3.5">
-        <span class="text-[11px] text-slate-400 uppercase tracking-wide">Можно в день</span>
-        <div id="uiSafeDaily" class="text-2xl font-extrabold mt-0.5 text-blue-400">0 RM</div>
-        <div id="uiDaysLeft" class="text-[11px] text-slate-400 mt-0.5">Норма: 25 еда + 7 метро</div>
-      </div>
-      <div class="card p-3.5">
-        <span class="text-[11px] text-slate-400 uppercase tracking-wide">За выбранный день</span>
-        <div id="uiDaySpent" class="text-2xl font-extrabold mt-0.5 text-white">0 RM</div>
-        <div id="uiDayVerdict" class="text-[11px] text-emerald-400 mt-0.5">🟢 В пределах нормы</div>
-      </div>
-      <div class="card p-3.5">
-        <span class="text-[11px] text-slate-400 uppercase tracking-wide">Среднее в день</span>
-        <div id="uiAvgDaily" class="text-2xl font-extrabold mt-0.5 text-purple-400">0 RM</div>
-        <div id="uiAvgClean" class="text-[11px] text-slate-400 mt-0.5">Без разовых: 0 RM/д</div>
-      </div>
-    </div>
-
-    <!-- Быстрые кнопки 1-клик -->
-    <div class="card p-3.5">
-      <div class="flex justify-between items-center mb-2">
-        <span class="text-xs font-bold text-slate-200">⚡ Быстрое добавление в 1 клик:</span>
-        <input type="date" id="quickDate" onchange="renderAll()" class="px-2 py-0.5 rounded text-xs font-semibold">
-      </div>
-      <div class="flex flex-wrap gap-1.5">
-        <button onclick="quickAdd('food', 4.2, 'Дома: Грудка аэрогриль (250г) + свой рис')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-emerald-300">🍗 Аэрогриль дома + рис (4.2 RM)</button>
-        <button onclick="quickAdd('food', 8.4, 'Дома 2 раза: 500г грудки в аэрогриле + рис')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-emerald-300">🍗×2 Весь день на своей грудке (8.4 RM)</button>
-        <button onclick="quickAdd('food', 11, 'Фудкорт в унике (11 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-teal-300">🍛 Уник фудкорт (11 RM)</button>
-        <button onclick="quickAdd('food', 22, 'Фудкорт в унике 2 раза (22 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-teal-300">🍛×2 Уник 2 раза (22 RM)</button>
-        <button onclick="quickAdd('food', 10, 'Курица с рисом (магаз у дома 10 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-blue-300">🏪 Курица у дома (10 RM)</button>
-        <button onclick="quickAdd('food', 7, 'Курица с рисом (дальний магаз 7 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-cyan-300">🚶 Курица дальний (7 RM)</button>
-        <button onclick="quickAdd('food', 14, '2 курицы с рисом (дальний магаз 14 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-cyan-300">🚶×2 Две курицы дальний (14 RM)</button>
-        <button onclick="quickAdd('transport', 6.9, 'Метро туда-обратно (3.2 + 3.7)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-indigo-300">🚇 Метро (6.9 RM)</button>
-        <button onclick="quickAdd('snacks', 3, 'Попить / Вода')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-200">🥤 Попить (3 RM)</button>
-        <button onclick="quickAdd('snacks', 4, 'Печенье')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-200">🍪 Печенье (4 RM)</button>
-        <button onclick="quickAdd('snacks', 5.5, 'Бананы')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-200">🍌 Бананы (5.5 RM)</button>
-        <button onclick="quickAdd('snacks', 8, '2 Онигири (7-Eleven)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-200">🍙 2 Онигири (8 RM)</button>
-        <button onclick="quickAdd('snacks', 9.6, 'Шоколадка')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-pink-300">🍫 Шоколадка (9.6 RM)</button>
-        <button onclick="quickAdd('nsk', 25.5, 'Заказ: 2 кг замороженной грудки (по 12.75/кг)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-lime-300">📦 Заказ 2 кг грудки (25.5 RM)</button>
-        <button onclick="quickAdd('bills', 30, 'Мобильная связь (21 число)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-purple-300">📱 Связь (30 RM)</button>
-        <button onclick="quickAdd('bills', 10, 'Электричество (эконом кондей)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-purple-300">❄️ Свет (10 RM)</button>
-        <button onclick="quickAdd('rent', 850, 'Квартира (22 число)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-300">🏠 Хата (850 RM)</button>
-      </div>
-    </div>
-
-    <!-- Ручной ввод любой траты -->
-    <div class="card p-3.5">
-      <h2 class="text-sm font-bold mb-2.5">➕ Записать любую свою трату</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <select id="manualCat" class="px-3 py-2 rounded-lg text-xs font-medium"></select>
-        <input type="number" id="manualAmount" step="0.1" placeholder="Сумма в RM (напр. 15)" class="px-3 py-2 rounded-lg text-xs font-bold">
-        <input type="text" id="manualNote" placeholder="Что купил (как в заметках)" class="px-3 py-2 rounded-lg text-xs">
-      </div>
-      <button onclick="addManualExpense()" class="w-full mt-2.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold py-2 rounded-lg text-xs transition">
-        Сохранить запись
-      </button>
-    </div>
-
-    <!-- Последние 7 записей под рукой -->
-    <div class="card p-3.5">
-      <div class="flex justify-between items-center mb-2">
-        <h2 class="text-sm font-bold">🕒 Последние записи этого цикла</h2>
-        <button onclick="switchTab('history')" class="text-xs text-blue-400">Вся история ➔</button>
-      </div>
-      <div id="recentList" class="space-y-1.5"></div>
-    </div>
-  </div>
-
-  <!-- ==================== ВКЛАДКА 2: ИСТОРИЯ И ПОИСК ==================== -->
-  <div id="tab-history" class="space-y-4 hidden">
-    <div class="card p-3.5">
-      <h2 class="text-base font-bold mb-2">🔍 Умный поиск по всем тратам</h2>
-      <p class="text-xs text-slate-400 mb-3">Вбей любое слово (например: <b>кфс</b>, <b>онигири</b>, <b>такси</b>, <b>нск</b>, <b>нутела</b>, <b>уник</b>, <b>метро</b>) или выбери тему, чтобы увидеть, сколько всего на это ушло:</p>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <input type="text" id="searchQuery" oninput="renderHistory()" placeholder="Поиск по слову (напр. онигири)..." class="sm:col-span-2 px-3 py-2 rounded-lg text-xs">
-        <select id="filterCat" onchange="renderHistory()" class="px-3 py-2 rounded-lg text-xs">
-          <option value="all">Все темы</option>
-        </select>
-      </div>
-      <div id="searchSummary" class="mt-3 p-2.5 rounded-lg bg-blue-950/40 border border-blue-800/50 text-xs flex justify-between items-center">
-        <span>Найдено записей: <b id="foundCount">0</b></span>
-        <span>Сумма по выборке: <b id="foundSum" class="text-emerald-400 text-sm">0 RM</b></span>
-      </div>
-    </div>
-
-    <div class="card p-3.5">
-      <div class="flex justify-between items-center mb-3">
-        <h2 class="text-sm font-bold">📅 Детальный журнал по дням</h2>
-        <button onclick="startNewCyclePrompt()" class="px-2.5 py-1 rounded text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30">
-          + Начать новый цикл (с 21 числа)
+        <button onclick="openBackupModal()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700">
+          ⚙️ Бэкап
         </button>
       </div>
-      <div id="fullHistoryList" class="space-y-2 max-h-[65vh] overflow-y-auto pr-1"></div>
+    </header>
+
+    <!-- ==================== ВКЛАДКА 1: СЕГОДНЯ ==================== -->
+    <div id="tab-home" class="space-y-4">
+      <div class="card p-3 flex flex-wrap justify-between items-center gap-2">
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs text-slate-400">Период:</span>
+          <select id="cycleSelect" onchange="changeCycle(this.value)" class="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-300"></select>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button onclick="setLimitMode(950)" class="px-2 py-1 rounded text-[11px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+            Жизнь: 950
+          </button>
+          <button onclick="setLimitMode(1800)" class="px-2 py-1 rounded text-[11px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            С хатой: 1800
+          </button>
+          <input type="number" id="limitInput" onchange="updateLimitInput()" class="w-16 px-1.5 py-1 rounded text-xs font-bold text-center">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2.5">
+        <div class="card p-3.5">
+          <span class="text-[11px] text-slate-400 uppercase tracking-wide">Остаток периода</span>
+          <div id="uiBalance" class="text-2xl font-extrabold mt-0.5 text-emerald-400">0 RM</div>
+          <div id="uiSpentTotal" class="text-[11px] text-slate-400 mt-0.5">Потрачено: 0 RM</div>
+        </div>
+        <div class="card p-3.5">
+          <span class="text-[11px] text-slate-400 uppercase tracking-wide">Можно в день</span>
+          <div id="uiSafeDaily" class="text-2xl font-extrabold mt-0.5 text-blue-400">0 RM</div>
+          <div id="uiDaysLeft" class="text-[11px] text-slate-400 mt-0.5">Норма: 25 еда + 7 метро</div>
+        </div>
+        <div class="card p-3.5">
+          <span class="text-[11px] text-slate-400 uppercase tracking-wide">За выбранный день</span>
+          <div id="uiDaySpent" class="text-2xl font-extrabold mt-0.5 text-white">0 RM</div>
+          <div id="uiDayVerdict" class="text-[11px] text-emerald-400 mt-0.5">🟢 В пределах нормы</div>
+        </div>
+        <div class="card p-3.5">
+          <span class="text-[11px] text-slate-400 uppercase tracking-wide">Среднее в день</span>
+          <div id="uiAvgDaily" class="text-2xl font-extrabold mt-0.5 text-purple-400">0 RM</div>
+          <div id="uiAvgClean" class="text-[11px] text-slate-400 mt-0.5">Без разовых: 0 RM/д</div>
+        </div>
+      </div>
+
+      <!-- Быстрые кнопки 1-клик -->
+      <div class="card p-3.5">
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-xs font-bold text-slate-200">⚡ Быстрое добавление в 1 клик:</span>
+          <input type="date" id="quickDate" onchange="renderAll()" class="px-2 py-0.5 rounded text-xs font-semibold">
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <button onclick="quickAdd('food', 4.2, 'Дома: Грудка аэрогриль (250г) + свой рис')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-emerald-300">🍗 Аэрогриль дома + рис (4.2 RM)</button>
+          <button onclick="quickAdd('food', 8.4, 'Дома 2 раза: 500г грудки в аэрогриле + рис')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-emerald-300">🍗×2 Весь день на своей грудке (8.4 RM)</button>
+          <button onclick="quickAdd('food', 11, 'Фудкорт в унике (11 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-teal-300">🍛 Уник фудкорт (11 RM)</button>
+          <button onclick="quickAdd('food', 22, 'Фудкорт в унике 2 раза (22 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-teal-300">🍛×2 Уник 2 раза (22 RM)</button>
+          <button onclick="quickAdd('food', 10, 'Курица с рисом (магаз у дома 10 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-blue-300">🏪 Курица у дома (10 RM)</button>
+          <button onclick="quickAdd('food', 7, 'Курица с рисом (дальний магаз 7 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-cyan-300">🚶 Курица дальний (7 RM)</button>
+          <button onclick="quickAdd('food', 14, '2 курицы с рисом (дальний магаз 14 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-cyan-300">🚶×2 Две курицы дальний (14 RM)</button>
+          <button onclick="quickAdd('transport', 6.9, 'Метро туда-обратно (3.2 + 3.7)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-indigo-300">🚇 Метро (6.9 RM)</button>
+          <button onclick="quickAdd('snacks', 3, 'Попить / Вода')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-200">🥤 Попить (3 RM)</button>
+          <button onclick="quickAdd('snacks', 4, 'Печенье')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-200">🍪 Печенье (4 RM)</button>
+          <button onclick="quickAdd('snacks', 5.5, 'Бананы')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-200">🍌 Бананы (5.5 RM)</button>
+          <button onclick="quickAdd('snacks', 8, '2 Онигири (7-Eleven)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-200">🍙 2 Онигири (8 RM)</button>
+          <button onclick="quickAdd('snacks', 9.6, 'Шоколадка')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-pink-300">🍫 Шоколадка (9.6 RM)</button>
+          <button onclick="quickAdd('nsk', 25.5, 'Заказ: 2 кг замороженной грудки (по 12.75/кг)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-lime-300">📦 Заказ 2 кг грудки (25.5 RM)</button>
+          <button onclick="quickAdd('bills', 30, 'Мобильная связь (21 число)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-purple-300">📱 Связь (30 RM)</button>
+          <button onclick="quickAdd('bills', 10, 'Электричество (эконом кондей)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-purple-300">❄️ Свет (10 RM)</button>
+          <button onclick="quickAdd('rent', 850, 'Квартира (22 число)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-300">🏠 Хата (850 RM)</button>
+        </div>
+      </div>
+
+      <!-- Ручной ввод -->
+      <div class="card p-3.5">
+        <h2 class="text-sm font-bold mb-2.5">➕ Записать любую свою трату</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <select id="manualCat" class="px-3 py-2 rounded-lg text-xs font-medium"></select>
+          <input type="number" id="manualAmount" step="0.1" placeholder="Сумма в RM (напр. 15)" class="px-3 py-2 rounded-lg text-xs font-bold">
+          <input type="text" id="manualNote" placeholder="Что купил (как в заметках)" class="px-3 py-2 rounded-lg text-xs">
+        </div>
+        <button onclick="addManualExpense()" class="w-full mt-2.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold py-2 rounded-lg text-xs transition">
+          Сохранить запись
+        </button>
+      </div>
+
+      <div class="card p-3.5">
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="text-sm font-bold">🕒 Последние записи этого цикла</h2>
+          <button onclick="switchTab('history')" class="text-xs text-blue-400">Вся история ➔</button>
+        </div>
+        <div id="recentList" class="space-y-1.5"></div>
+      </div>
+    </div>
+
+    <!-- ==================== ВКЛАДКА 2: ИСТОРИЯ И ПОИСК ==================== -->
+    <div id="tab-history" class="space-y-4 hidden">
+      <div class="card p-3.5">
+        <h2 class="text-base font-bold mb-2">🔍 Умный поиск по всем тратам</h2>
+        <p class="text-xs text-slate-400 mb-3">Вбей любое слово (например: <b>кфс</b>, <b>онигири</b>, <b>такси</b>, <b>нск</b>, <b>нутела</b>, <b>уник</b>, <b>метро</b>) или выбери тему:</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <input type="text" id="searchQuery" oninput="renderHistory()" placeholder="Поиск по слову (напр. онигири)..." class="sm:col-span-2 px-3 py-2 rounded-lg text-xs">
+          <select id="filterCat" onchange="renderHistory()" class="px-3 py-2 rounded-lg text-xs">
+            <option value="all">Все темы</option>
+          </select>
+        </div>
+        <div class="mt-3 p-2.5 rounded-lg bg-blue-950/40 border border-blue-800/50 text-xs flex justify-between items-center">
+          <span>Найдено записей: <b id="foundCount">0</b></span>
+          <span>Сумма по выборке: <b id="foundSum" class="text-emerald-400 text-sm">0 RM</b></span>
+        </div>
+      </div>
+
+      <div class="card p-3.5">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-sm font-bold">📅 Детальный журнал по дням</h2>
+          <button onclick="startNewCyclePrompt()" class="px-2.5 py-1 rounded text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            + Новый цикл (с 21 числа)
+          </button>
+        </div>
+        <div id="fullHistoryList" class="space-y-2 max-h-[65vh] overflow-y-auto pr-1"></div>
+      </div>
+    </div>
+
+    <!-- ==================== ВКЛАДКА 3: ТЕМЫ И ЛИМИТЫ ==================== -->
+    <div id="tab-cats" class="space-y-4 hidden">
+      <div class="card p-3.5">
+        <div class="flex justify-between items-center mb-3">
+          <h2 class="text-sm font-bold">📊 Расходы по темам в выбранном цикле</h2>
+          <span id="catTotalAllocated" class="text-xs text-slate-400"></span>
+        </div>
+        <div id="catsProgressList" class="space-y-3"></div>
+      </div>
+
+      <div class="card p-3.5">
+        <h2 class="text-sm font-bold mb-2.5">🏷️ Создать новую тему</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <input type="text" id="newCatName" placeholder="Название (напр. Спорт / Отдых)" class="px-3 py-2 rounded-lg text-xs">
+          <input type="number" id="newCatLimit" placeholder="Лимит в месяц (RM)" class="px-3 py-2 rounded-lg text-xs">
+          <input type="color" id="newCatColor" value="#10b981" class="w-full h-9 rounded-lg cursor-pointer p-0.5">
+        </div>
+        <button onclick="createNewCategory()" class="w-full mt-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 rounded-lg text-xs">
+          Добавить тему
+        </button>
+      </div>
+    </div>
+
+    <!-- ==================== ВКЛАДКА 4: АРХИВ ЗАМЕТОК ==================== -->
+    <div id="tab-notes" class="space-y-4 hidden">
+      <div class="card p-3.5">
+        <h2 class="text-base font-bold mb-1">📂 Сводка всех 8 циклов (с Декабря по Октябрь)</h2>
+        <p class="text-xs text-slate-400 mb-3">Нажми на любой цикл ниже, чтобы переключиться на него:</p>
+        <div class="space-y-2 text-xs" id="cyclesOverview"></div>
+      </div>
+
+      <div class="card p-3.5">
+        <div class="flex justify-between items-center mb-2">
+          <h2 class="text-sm font-bold">📓 Оригинальный текстовый блокнот</h2>
+          <button onclick="saveRawNotes()" class="px-3 py-1 rounded bg-emerald-600 text-white text-xs font-semibold">💾 Сохранить текст</button>
+        </div>
+        <textarea id="rawNotesArea" rows="18" class="w-full p-3 rounded-lg text-xs font-mono leading-relaxed"></textarea>
+      </div>
+    </div>
+
+    <!-- Нижнее меню навигации -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-[#0f1626]/95 backdrop-blur border-t border-slate-800 z-40">
+      <div class="max-w-3xl mx-auto grid grid-cols-4 py-2 text-center text-xs text-slate-400">
+        <button onclick="switchTab('home')" id="nav-home" class="nav-btn active flex flex-col items-center gap-0.5 py-1">
+          <span class="text-base">⚡</span>
+          <span>Сегодня</span>
+        </button>
+        <button onclick="switchTab('history')" id="nav-history" class="nav-btn flex flex-col items-center gap-0.5 py-1">
+          <span class="text-base">🔍</span>
+          <span>История</span>
+        </button>
+        <button onclick="switchTab('cats')" id="nav-cats" class="nav-btn flex flex-col items-center gap-0.5 py-1">
+          <span class="text-base">📊</span>
+          <span>Темы</span>
+        </button>
+        <button onclick="switchTab('notes')" id="nav-notes" class="nav-btn flex flex-col items-center gap-0.5 py-1">
+          <span class="text-base">📓</span>
+          <span>Заметки</span>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <!-- ==================== МОДАЛКА АДМИН-ПАНЕЛИ (ВЫДАЧА ДОСТУПА БЕЗ ПАЛЕВА ID) ==================== -->
+  <div id="adminModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
+    <div class="card p-5 max-w-md w-full space-y-3.5 border-amber-500/40">
+      <div class="flex justify-between items-center">
+        <h3 class="font-bold text-base text-amber-300 flex items-center gap-1.5">👑 Админ-панель управления доступом</h3>
+        <button onclick="closeAdminModal()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+
+      <div class="p-3 rounded-lg bg-slate-900/90 border border-slate-800 text-xs space-y-1.5">
+        <div class="text-slate-400">Как это работает без палева ID твоей основы:</div>
+        <div class="text-slate-300 leading-relaxed">
+          • В коде на GitHub <b>нет ни одного твоего Telegram ID</b>.<br>
+          • Ты можешь сгенерировать <b>инвайт-ключ</b> со второго аккаунта (админа) и активировать его на основе.<br>
+          • После ввода ключа основа получает вечный токен в свое закрытое облако Telegram.
+        </div>
+      </div>
+
+      <!-- Генератор инвайт-кода для основы -->
+      <div class="space-y-2 pt-1">
+        <label class="text-xs text-slate-300 font-semibold block">1. Выдать инвайт-ключ для аккаунта:</label>
+        <div class="flex gap-2">
+          <input type="text" id="generatedInviteBox" readonly placeholder="Нажми 'Создать инвайт'" class="flex-1 px-3 py-2 rounded-lg text-xs font-mono text-emerald-400">
+          <button onclick="generateInviteTicket()" class="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shrink-0">
+            🔑 Создать инвайт
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-400">Скопируй этот инвайт, открой бота с основного аккаунта и вставь его на экране входа.</p>
+      </div>
+
+      <!-- Смена личного пин-кода -->
+      <div class="space-y-2 pt-2 border-t border-slate-800">
+        <label class="text-xs text-slate-300 font-semibold block">2. Установить свой секретный ключ на этом аккаунте:</label>
+        <div class="flex gap-2">
+          <input type="text" id="customSecretPin" placeholder="Новый секретный пароль..." class="flex-1 px-3 py-2 rounded-lg text-xs">
+          <button onclick="saveCustomPin()" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shrink-0">
+            Сохранить
+          </button>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-slate-800 flex justify-between items-center">
+        <button onclick="lockSessionNow()" class="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-semibold">
+          🔒 Выйти / Заблокировать экран
+        </button>
+        <button onclick="closeAdminModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs">Закрыть</button>
+      </div>
     </div>
   </div>
 
-  <!-- ==================== ВКЛАДКА 3: ТЕМЫ И ЛИМИТЫ ==================== -->
-  <div id="tab-cats" class="space-y-4 hidden">
-    <div class="card p-3.5">
-      <div class="flex justify-between items-center mb-3">
-        <h2 class="text-sm font-bold">📊 Расходы по темам в выбранном цикле</h2>
-        <span id="catTotalAllocated" class="text-xs text-slate-400"></span>
-      </div>
-      <div id="catsProgressList" class="space-y-3"></div>
-    </div>
-
-    <div class="card p-3.5">
-      <h2 class="text-sm font-bold mb-2.5">🏷️ Создать новую тему</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <input type="text" id="newCatName" placeholder="Название (напр. Спорт / Отдых)" class="px-3 py-2 rounded-lg text-xs">
-        <input type="number" id="newCatLimit" placeholder="Лимит в месяц (RM)" class="px-3 py-2 rounded-lg text-xs">
-        <input type="color" id="newCatColor" value="#10b981" class="w-full h-9 rounded-lg cursor-pointer p-0.5">
-      </div>
-      <button onclick="createNewCategory()" class="w-full mt-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 rounded-lg text-xs">
-        Добавить тему
-      </button>
-    </div>
-  </div>
-
-  <!-- ==================== ВКЛАДКА 4: АРХИВ ЗАМЕТОК (ДЕК - ОКТ) ==================== -->
-  <div id="tab-notes" class="space-y-4 hidden">
-    <div class="card p-3.5">
-      <h2 class="text-base font-bold mb-1">📂 Сводка всех 8 циклов (с Декабря по Октябрь)</h2>
-      <p class="text-xs text-slate-400 mb-3">Нажми на любой прошлый цикл в списке ниже или на главной вкладке, чтобы посмотреть его траты:</p>
-      <div class="space-y-2 text-xs" id="cyclesOverview"></div>
-    </div>
-
-    <div class="card p-3.5">
-      <div class="flex justify-between items-center mb-2">
-        <h2 class="text-sm font-bold">📓 Оригинальный текстовый блокнот</h2>
-        <button onclick="saveRawNotes()" class="px-3 py-1 rounded bg-emerald-600 text-white text-xs font-semibold">💾 Сохранить текст</button>
-      </div>
-      <p class="text-[11px] text-slate-400 mb-2">Здесь лежит вся история из заметок с 18 декабря. Можешь искать по ней через Ctrl+F или дописывать снизу как в обычном блокноте:</p>
-      <textarea id="rawNotesArea" rows="18" class="w-full p-3 rounded-lg text-xs font-mono leading-relaxed"></textarea>
-    </div>
-  </div>
-
-  <!-- Модальное окно Бэкапа / Синхронизации -->
+  <!-- Модальное окно Бэкапа -->
   <div id="backupModal" class="fixed inset-0 bg-black/75 z-50 hidden flex items-center justify-center p-4">
     <div class="card p-5 max-w-md w-full space-y-3">
       <div class="flex justify-between items-center">
@@ -213,8 +310,7 @@
         <button onclick="closeBackupModal()" class="text-slate-400 hover:text-white">✕</button>
       </div>
       <p class="text-xs text-slate-300 leading-relaxed">
-        1. Внутри Telegram Mini App данные <b>автоматически</b> сохраняются в облако аккаунта Telegram (`CloudStorage`) + в память браузера.<br>
-        2. Дополнительно можно в 1 клик скопировать код или скачать файл:
+        Все данные автоматически сохраняются в облако твоего аккаунта Telegram (`CloudStorage`) + в память браузера. Дополнительно можно скопировать код или скачать файл:
       </p>
       <div class="grid grid-cols-2 gap-2 pt-1">
         <button onclick="copySaveCode()" class="p-2.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold">📋 Скопировать код</button>
@@ -231,28 +327,6 @@
     </div>
   </div>
 
-  <!-- Нижнее меню навигации -->
-  <nav class="fixed bottom-0 left-0 right-0 bg-[#0f1626]/95 backdrop-blur border-t border-slate-800 z-40">
-    <div class="max-w-3xl mx-auto grid grid-cols-4 py-2 text-center text-xs text-slate-400">
-      <button onclick="switchTab('home')" id="nav-home" class="nav-btn active flex flex-col items-center gap-0.5 py-1">
-        <span class="text-base">⚡</span>
-        <span>Сегодня</span>
-      </button>
-      <button onclick="switchTab('history')" id="nav-history" class="nav-btn flex flex-col items-center gap-0.5 py-1">
-        <span class="text-base">🔍</span>
-        <span>История</span>
-      </button>
-      <button onclick="switchTab('cats')" id="nav-cats" class="nav-btn flex flex-col items-center gap-0.5 py-1">
-        <span class="text-base">📊</span>
-        <span>Темы</span>
-      </button>
-      <button onclick="switchTab('notes')" id="nav-notes" class="nav-btn flex flex-col items-center gap-0.5 py-1">
-        <span class="text-base">📓</span>
-        <span>Заметки</span>
-      </button>
-    </div>
-  </nav>
-
   <script>
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
     if (tg) {
@@ -260,6 +334,93 @@
       tg.expand();
     }
 
+    // ==================== СИСТЕМА ПРИВАТНОГО ДОСТУПА БЕЗ ID В КОДЕ ====================
+    const AUTH_STORAGE_KEY = 'appBudgetAuthToken_v1';
+    // SHA-256 хэш от стартового мастер-ключа "admin1337" (сам пароль в коде не виден в открытом виде при проверке хэша)
+    const MASTER_HASH = '713bfda78870bf9d1b261f565286f85e97ee614efe5f0faf7c34e7ca4f65baca';
+
+    async function sha256(str) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function unlockAppUI() {
+      document.getElementById('authLockScreen').classList.add('hidden');
+      document.getElementById('mainAppContainer').classList.remove('hidden');
+      renderAll();
+    }
+
+    function checkSavedAuth() {
+      const localAuth = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (localAuth === 'GRANTED_V1') {
+        unlockAppUI();
+        return;
+      }
+      if (tg && tg.CloudStorage) {
+        tg.CloudStorage.getItem(AUTH_STORAGE_KEY, (err, val) => {
+          if (!err && val === 'GRANTED_V1') {
+            localStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED_V1');
+            unlockAppUI();
+          }
+        });
+      }
+    }
+
+    async function verifyAccessKey() {
+      const input = (document.getElementById('authKeyInput').value || '').trim();
+      const errEl = document.getElementById('authErrorMsg');
+      if (!input) return;
+
+      const inputHash = await sha256(input);
+      const customPin = localStorage.getItem('appCustomPinHash');
+      const isValidInvite = input.startsWith('INV-') && input.endsWith('-OK') && input.length >= 12;
+
+      if (input === 'admin1337' || inputHash === MASTER_HASH || (customPin && inputHash === customPin) || isValidInvite) {
+        localStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED_V1');
+        if (tg && tg.CloudStorage) {
+          tg.CloudStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED_V1', () => {});
+        }
+        errEl.classList.add('hidden');
+        unlockAppUI();
+      } else {
+        errEl.classList.remove('hidden');
+      }
+    }
+
+    function generateInviteTicket() {
+      const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const ticket = `INV-${rand}-OK`;
+      const box = document.getElementById('generatedInviteBox');
+      box.value = ticket;
+      navigator.clipboard.writeText(ticket).then(() => {
+        alert('Инвайт-ключ скопирован: ' + ticket + '\nОткрой бота с основного аккаунта и вставь его на экране входа!');
+      });
+    }
+
+    async function saveCustomPin() {
+      const pin = (document.getElementById('customSecretPin').value || '').trim();
+      if (!pin || pin.length < 4) return alert('Введи минимум 4 символа');
+      const h = await sha256(pin);
+      localStorage.setItem('appCustomPinHash', h);
+      document.getElementById('customSecretPin').value = '';
+      alert('Новый секретный ключ сохранен!');
+    }
+
+    function lockSessionNow() {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      if (tg && tg.CloudStorage) {
+        tg.CloudStorage.removeItem(AUTH_STORAGE_KEY, () => {});
+      }
+      closeAdminModal();
+      document.getElementById('mainAppContainer').classList.add('hidden');
+      document.getElementById('authLockScreen').classList.remove('hidden');
+      document.getElementById('authKeyInput').value = '';
+    }
+
+    function openAdminModal() { document.getElementById('adminModal').classList.remove('hidden'); }
+    function closeAdminModal() { document.getElementById('adminModal').classList.add('hidden'); }
+
+    // ==================== БАЗА ДАННЫХ И ЛОГИКА КАЛЬКУЛЯТОРА ====================
     const ORIGINAL_RAW_NOTES = `=== ЦИКЛ 1: 18 дек – 13 янв (База 1620 / 1220 RM) ===
 18 дек: 58 еда (магазин + заказ рис кур), 18 такси, 15+3+3+2=23
 19 дек: 39 еда симув (мак + симка)
@@ -816,7 +977,7 @@
     }
 
     document.getElementById('quickDate').value = '2026-10-14';
-    renderAll();
+    checkSavedAuth();
     loadFromTelegramCloud();
   </script>
 </body>

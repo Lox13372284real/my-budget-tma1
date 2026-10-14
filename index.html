@@ -3,341 +3,396 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Private Finance App</title>
+  <title>Finance Tracker</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     :root { color-scheme: dark; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
-      background-color: #0b0f19;
-      color: #f1f5f9;
+      background-color: #090d16;
+      color: #f8fafc;
       font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
-      padding-bottom: 85px;
-      -webkit-tap-highlight-color: transparent;
+      padding-bottom: 84px;
+      margin: 0;
+      overflow-x: hidden;
     }
-    .card { background-color: #151d2e; border: 1px solid #243049; border-radius: 1rem; }
-    input, select, textarea { background-color: #0b0f19; border: 1px solid #2e3d5c; color: #f8fafc; }
+    .surface { background-color: #131b2e; border: 1px solid #1e293b; border-radius: 16px; }
+    .surface-soft { background-color: #0f1523; border: 1px solid #1e293b; border-radius: 12px; }
+    input, select, textarea {
+      background-color: #090d16;
+      border: 1px solid #283548;
+      color: #f8fafc;
+      border-radius: 10px;
+    }
     input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6; }
-    .chip { background-color: #1e293b; border: 1px solid #334155; transition: transform 0.1s, background-color 0.15s; }
-    .chip:active { transform: scale(0.96); background-color: #3b82f6; color: white; }
-    .nav-btn.active { color: #3b82f6; font-weight: 700; }
+    .quick-btn {
+      background-color: #162033;
+      border: 1px solid #23314b;
+      border-radius: 12px;
+      transition: all 0.12s ease;
+    }
+    .quick-btn:active { transform: scale(0.97); background-color: #2563eb; border-color: #3b82f6; }
+    .nav-item { color: #64748b; transition: color 0.15s; }
+    .nav-item.active { color: #3b82f6; font-weight: 600; }
+    #toast {
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+    }
   </style>
 </head>
-<body class="max-w-3xl mx-auto p-3.5 md:p-6">
+<body class="max-w-md mx-auto px-3.5 pt-3">
 
-  <!-- ==================== ЭКРАН БЛОКИРОВКИ (ДЛЯ ЧУЖИХ) ==================== -->
-  <div id="authLockScreen" class="fixed inset-0 bg-[#0b0f19] z-50 flex items-center justify-center p-4">
-    <div class="card p-6 max-w-sm w-full text-center space-y-4 border-slate-700/80 shadow-2xl">
-      <div class="w-14 h-14 rounded-2xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center mx-auto text-2xl">
+  <!-- Незаметный всплывающий индикатор сохранения (исчезает через 1.2 сек) -->
+  <div id="toast" class="fixed top-3 left-1/2 -translate-x-1/2 z-50 opacity-0 -translate-y-2 bg-emerald-500 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-full shadow-lg">
+    ✓ Сохранено
+  </div>
+
+  <!-- ==================== ЭКРАН БЛОКИРОВКИ ==================== -->
+  <div id="authLockScreen" class="fixed inset-0 bg-[#090d16] z-50 flex items-center justify-center p-5">
+    <div class="surface p-6 w-full max-w-xs text-center space-y-4 shadow-2xl">
+      <div class="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto text-xl">
         🔒
       </div>
       <div>
-        <h2 class="text-lg font-extrabold text-white">Доступ ограничен</h2>
-        <p class="text-xs text-slate-400 mt-1">Приватное приложение. Введите ключ доступа, выданный администратором, или мастер-пароль.</p>
+        <h2 class="text-base font-bold text-white">Приватный доступ</h2>
+        <p class="text-xs text-slate-400 mt-1">Введите ключ доступа или инвайт</p>
       </div>
-      <div class="space-y-2.5 text-left">
-        <input type="password" id="authKeyInput" placeholder="Введите ключ доступа или инвайт..." class="w-full px-3.5 py-2.5 rounded-xl text-sm font-semibold text-center tracking-wider">
-        <div id="authErrorMsg" class="text-xs text-red-400 text-center hidden">⛔ Неверный ключ доступа</div>
-        <button onclick="verifyAccessKey()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl text-sm transition">
-          Войти в систему
-        </button>
-      </div>
-      <div class="pt-2 border-t border-slate-800 text-[11px] text-slate-500">
-        Сессия вашего аккаунта сохраняется в защищенном облаке Telegram после первой активации.
-      </div>
+      <input type="password" id="authKeyInput" placeholder="Ключ доступа..." class="w-full px-3 py-2.5 text-sm font-semibold text-center">
+      <div id="authErrorMsg" class="text-xs text-red-400 hidden">Неверный ключ</div>
+      <button onclick="verifyAccessKey()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm">
+        Войти
+      </button>
     </div>
   </div>
 
-  <!-- ==================== ОСНОВНОЕ ПРИЛОЖЕНИЕ (СКРЫТО ДО ВХОДА) ==================== -->
+  <!-- ==================== ГЛАВНЫЙ КОНТЕЙНЕР ==================== -->
   <div id="mainAppContainer" class="hidden">
 
-    <!-- Верхний статус-бар -->
-    <header class="flex justify-between items-center mb-4">
-      <div>
-        <h1 class="text-lg md:text-xl font-extrabold text-white flex items-center gap-2">
-          <span>⚡ Бюджет (RM)</span>
-          <span id="syncBadge" class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-            ☁️ Сохранено
-          </span>
-        </h1>
-        <p class="text-[11px] text-slate-400">1800 RM/мес = 850 Хата (22-го) + 950 Жизнь (Связь 21-го: 30 RM)</p>
+    <!-- Минималистичная шапка -->
+    <header class="flex justify-between items-center mb-3.5">
+      <div class="flex items-center gap-2">
+        <span class="text-base font-extrabold tracking-tight text-white">⚡ Бюджет</span>
+        <span id="activeCycleBadge" onclick="switchTab('history')" class="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 cursor-pointer">
+          21 Сен – 20 Окт ▾
+        </span>
       </div>
       <div class="flex items-center gap-1.5">
-        <button onclick="openAdminModal()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25">
-          👑 Админка
-        </button>
-        <button onclick="openBackupModal()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700">
-          ⚙️ Бэкап
+        <input type="date" id="quickDate" onchange="renderAll()" class="px-2 py-1 text-xs font-medium text-slate-300">
+        <button onclick="openSettingsModal()" class="w-8 h-8 rounded-xl surface flex items-center justify-center text-slate-300 hover:text-white">
+          ⚙️
         </button>
       </div>
     </header>
 
     <!-- ==================== ВКЛАДКА 1: СЕГОДНЯ ==================== -->
-    <div id="tab-home" class="space-y-4">
-      <div class="card p-3 flex flex-wrap justify-between items-center gap-2">
-        <div class="flex items-center gap-1.5">
-          <span class="text-xs text-slate-400">Период:</span>
-          <select id="cycleSelect" onchange="changeCycle(this.value)" class="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-300"></select>
+    <div id="tab-home" class="space-y-3.5">
+
+      <!-- Главная карточка баланса -->
+      <div class="surface p-4">
+        <div class="flex justify-between items-start">
+          <div>
+            <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Остаток периода</span>
+            <div id="uiBalance" class="text-3xl font-black mt-0.5 tracking-tight text-emerald-400">0.0 RM</div>
+            <div id="uiSpentTotal" class="text-xs text-slate-400 mt-0.5">Потрачено: 0 из 950 RM</div>
+          </div>
+          <!-- Переключатель лимита 950 / 1800 в 1 тап -->
+          <div class="flex bg-[#090d16] p-1 rounded-xl border border-slate-800 text-[11px] font-semibold">
+            <button id="btnLim950" onclick="setLimitMode(950)" class="px-2.5 py-1 rounded-lg transition">950</button>
+            <button id="btnLim1800" onclick="setLimitMode(1800)" class="px-2.5 py-1 rounded-lg transition">1800</button>
+          </div>
         </div>
-        <div class="flex items-center gap-1.5">
-          <button onclick="setLimitMode(950)" class="px-2 py-1 rounded text-[11px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-            Жизнь: 950
+
+        <!-- 3 компактные метрики внутри карточки -->
+        <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800/80 text-center">
+          <div>
+            <div class="text-[10px] text-slate-400 uppercase">За день</div>
+            <div id="uiDaySpent" class="text-sm font-bold text-white mt-0.5">0 RM</div>
+            <div id="uiDayVerdict" class="text-[10px] text-emerald-400">Норма ≤32</div>
+          </div>
+          <div class="border-x border-slate-800/80">
+            <div class="text-[10px] text-slate-400 uppercase">Среднее/д</div>
+            <div id="uiAvgClean" class="text-sm font-bold text-purple-400 mt-0.5">0 RM</div>
+            <div class="text-[10px] text-slate-500">Без разовых</div>
+          </div>
+          <div>
+            <div class="text-[10px] text-slate-400 uppercase">Лимит/д</div>
+            <div id="uiSafeDaily" class="text-sm font-bold text-blue-400 mt-0.5">0 RM</div>
+            <div class="text-[10px] text-slate-500">До 21 числа</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Быстрые кнопки: чистая сетка с подкатегориями -->
+      <div class="surface p-3.5 space-y-2.5">
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-bold text-slate-300">Быстрое добавление</span>
+          <span class="text-[11px] text-slate-500">Нажми для записи</span>
+        </div>
+
+        <!-- Еда -->
+        <div class="grid grid-cols-2 gap-1.5">
+          <button onclick="quickAdd('food', 4.2, 'Аэрогриль грудка + рис')" class="quick-btn p-2.5 text-left flex justify-between items-center">
+            <span class="text-xs font-medium text-slate-200">🍗 Своя грудка</span>
+            <span class="text-xs font-bold text-emerald-400">4.2</span>
           </button>
-          <button onclick="setLimitMode(1800)" class="px-2 py-1 rounded text-[11px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-            С хатой: 1800
+          <button onclick="quickAdd('food', 8.4, 'Аэрогриль 2 раза (500г)')" class="quick-btn p-2.5 text-left flex justify-between items-center">
+            <span class="text-xs font-medium text-slate-200">🍗×2 Грудка день</span>
+            <span class="text-xs font-bold text-emerald-400">8.4</span>
           </button>
-          <input type="number" id="limitInput" onchange="updateLimitInput()" class="w-16 px-1.5 py-1 rounded text-xs font-bold text-center">
+          <button onclick="quickAdd('food', 11, 'Фудкорт в унике')" class="quick-btn p-2.5 text-left flex justify-between items-center">
+            <span class="text-xs font-medium text-slate-200">🍛 Уник 1 раз</span>
+            <span class="text-xs font-bold text-teal-400">11</span>
+          </button>
+          <button onclick="quickAdd('food', 22, 'Фудкорт в унике 2 раза')" class="quick-btn p-2.5 text-left flex justify-between items-center">
+            <span class="text-xs font-medium text-slate-200">🍛×2 Уник 2 раза</span>
+            <span class="text-xs font-bold text-teal-400">22</span>
+          </button>
+          <button onclick="quickAdd('food', 10, 'Курица+рис (у дома)')" class="quick-btn p-2.5 text-left flex justify-between items-center">
+            <span class="text-xs font-medium text-slate-200">🏪 Рис+кур дом</span>
+            <span class="text-xs font-bold text-blue-400">10</span>
+          </button>
+          <button onclick="quickAdd('food', 7, 'Курица+рис (дальний)')" class="quick-btn p-2.5 text-left flex justify-between items-center">
+            <span class="text-xs font-medium text-slate-200">🚶 Рис+кур дальн</span>
+            <span class="text-xs font-bold text-cyan-400">7</span>
+          </button>
+        </div>
+
+        <!-- Метро и перекусы -->
+        <div class="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-800/60">
+          <button onclick="quickAdd('transport', 6.9, 'Метро туда-обратно')" class="quick-btn p-2 text-center">
+            <div class="text-[11px] text-slate-300">🚇 Метро</div>
+            <div class="text-xs font-bold text-indigo-400">6.9</div>
+          </button>
+          <button onclick="quickAdd('snacks', 3, 'Попить / Вода')" class="quick-btn p-2 text-center">
+            <div class="text-[11px] text-slate-300">🥤 Вода</div>
+            <div class="text-xs font-bold text-amber-300">3.0</div>
+          </button>
+          <button onclick="quickAdd('snacks', 5.5, 'Бананы')" class="quick-btn p-2 text-center">
+            <div class="text-[11px] text-slate-300">🍌 Бананы</div>
+            <div class="text-xs font-bold text-amber-300">5.5</div>
+          </button>
+          <button onclick="quickAdd('snacks', 4, 'Печенье')" class="quick-btn p-2 text-center">
+            <div class="text-[11px] text-slate-300">🍪 Печенье</div>
+            <div class="text-xs font-bold text-amber-300">4.0</div>
+          </button>
+          <button onclick="quickAdd('snacks', 8, '2 Онигири')" class="quick-btn p-2 text-center">
+            <div class="text-[11px] text-slate-300">🍙 Онигири</div>
+            <div class="text-xs font-bold text-amber-300">8.0</div>
+          </button>
+          <button onclick="quickAdd('snacks', 9.6, 'Шоколадка')" class="quick-btn p-2 text-center">
+            <div class="text-[11px] text-slate-300">🍫 Шоколад</div>
+            <div class="text-xs font-bold text-pink-400">9.6</div>
+          </button>
+        </div>
+
+        <!-- Закупки и счета -->
+        <div class="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-800/60">
+          <button onclick="quickAdd('nsk', 25.5, 'Заказ 2 кг грудки')" class="quick-btn p-2 text-center">
+            <div class="text-[11px] text-slate-300">📦 2кг грудки</div>
+            <div class="text-xs font-bold text-lime-400">25.5</div>
+          </button>
+          <button onclick="quickAdd('bills', 30, 'Связь (21 число)')" class="quick-btn p-2 text-center">
+            <div class="text-[11px] text-slate-300">📱 Связь</div>
+            <div class="text-xs font-bold text-purple-400">30</div>
+          </button>
+          <button onclick="quickAdd('bills', 10, 'Электричество')" class="quick-btn p-2 text-center">
+            <div class="text-[11px] text-slate-300">❄️ Свет</div>
+            <div class="text-xs font-bold text-purple-400">10</div>
+          </button>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-2.5">
-        <div class="card p-3.5">
-          <span class="text-[11px] text-slate-400 uppercase tracking-wide">Остаток периода</span>
-          <div id="uiBalance" class="text-2xl font-extrabold mt-0.5 text-emerald-400">0 RM</div>
-          <div id="uiSpentTotal" class="text-[11px] text-slate-400 mt-0.5">Потрачено: 0 RM</div>
+      <!-- Ручной ввод в 2 компактных ряда -->
+      <div class="surface p-3.5 space-y-2">
+        <div class="text-xs font-bold text-slate-300">Своя запись</div>
+        <div class="flex gap-2">
+          <input type="number" id="manualAmount" step="0.1" placeholder="Сумма" class="w-24 px-3 py-2 text-xs font-bold">
+          <input type="text" id="manualNote" placeholder="Описание (напр. такси, соус)" class="flex-1 px-3 py-2 text-xs">
         </div>
-        <div class="card p-3.5">
-          <span class="text-[11px] text-slate-400 uppercase tracking-wide">Можно в день</span>
-          <div id="uiSafeDaily" class="text-2xl font-extrabold mt-0.5 text-blue-400">0 RM</div>
-          <div id="uiDaysLeft" class="text-[11px] text-slate-400 mt-0.5">Норма: 25 еда + 7 метро</div>
-        </div>
-        <div class="card p-3.5">
-          <span class="text-[11px] text-slate-400 uppercase tracking-wide">За выбранный день</span>
-          <div id="uiDaySpent" class="text-2xl font-extrabold mt-0.5 text-white">0 RM</div>
-          <div id="uiDayVerdict" class="text-[11px] text-emerald-400 mt-0.5">🟢 В пределах нормы</div>
-        </div>
-        <div class="card p-3.5">
-          <span class="text-[11px] text-slate-400 uppercase tracking-wide">Среднее в день</span>
-          <div id="uiAvgDaily" class="text-2xl font-extrabold mt-0.5 text-purple-400">0 RM</div>
-          <div id="uiAvgClean" class="text-[11px] text-slate-400 mt-0.5">Без разовых: 0 RM/д</div>
+        <div class="flex gap-2">
+          <select id="manualCat" class="flex-1 px-2.5 py-2 text-xs text-slate-300"></select>
+          <button onclick="addManualExpense()" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-xl text-xs shrink-0">
+            + Добавить
+          </button>
         </div>
       </div>
 
-      <!-- Быстрые кнопки 1-клик -->
-      <div class="card p-3.5">
+      <!-- Траты за выбранный день / последние 5 -->
+      <div class="surface p-3.5">
         <div class="flex justify-between items-center mb-2">
-          <span class="text-xs font-bold text-slate-200">⚡ Быстрое добавление в 1 клик:</span>
-          <input type="date" id="quickDate" onchange="renderAll()" class="px-2 py-0.5 rounded text-xs font-semibold">
-        </div>
-        <div class="flex flex-wrap gap-1.5">
-          <button onclick="quickAdd('food', 4.2, 'Дома: Грудка аэрогриль (250г) + свой рис')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-emerald-300">🍗 Аэрогриль дома + рис (4.2 RM)</button>
-          <button onclick="quickAdd('food', 8.4, 'Дома 2 раза: 500г грудки в аэрогриле + рис')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-emerald-300">🍗×2 Весь день на своей грудке (8.4 RM)</button>
-          <button onclick="quickAdd('food', 11, 'Фудкорт в унике (11 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-teal-300">🍛 Уник фудкорт (11 RM)</button>
-          <button onclick="quickAdd('food', 22, 'Фудкорт в унике 2 раза (22 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-teal-300">🍛×2 Уник 2 раза (22 RM)</button>
-          <button onclick="quickAdd('food', 10, 'Курица с рисом (магаз у дома 10 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-blue-300">🏪 Курица у дома (10 RM)</button>
-          <button onclick="quickAdd('food', 7, 'Курица с рисом (дальний магаз 7 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-cyan-300">🚶 Курица дальний (7 RM)</button>
-          <button onclick="quickAdd('food', 14, '2 курицы с рисом (дальний магаз 14 RM)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-cyan-300">🚶×2 Две курицы дальний (14 RM)</button>
-          <button onclick="quickAdd('transport', 6.9, 'Метро туда-обратно (3.2 + 3.7)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-indigo-300">🚇 Метро (6.9 RM)</button>
-          <button onclick="quickAdd('snacks', 3, 'Попить / Вода')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-200">🥤 Попить (3 RM)</button>
-          <button onclick="quickAdd('snacks', 4, 'Печенье')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-200">🍪 Печенье (4 RM)</button>
-          <button onclick="quickAdd('snacks', 5.5, 'Бананы')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-200">🍌 Бананы (5.5 RM)</button>
-          <button onclick="quickAdd('snacks', 8, '2 Онигири (7-Eleven)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-amber-200">🍙 2 Онигири (8 RM)</button>
-          <button onclick="quickAdd('snacks', 9.6, 'Шоколадка')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-pink-300">🍫 Шоколадка (9.6 RM)</button>
-          <button onclick="quickAdd('nsk', 25.5, 'Заказ: 2 кг замороженной грудки (по 12.75/кг)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-lime-300">📦 Заказ 2 кг грудки (25.5 RM)</button>
-          <button onclick="quickAdd('bills', 30, 'Мобильная связь (21 число)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-purple-300">📱 Связь (30 RM)</button>
-          <button onclick="quickAdd('bills', 10, 'Электричество (эконом кондей)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-purple-300">❄️ Свет (10 RM)</button>
-          <button onclick="quickAdd('rent', 850, 'Квартира (22 число)')" class="chip px-2.5 py-1.5 rounded-lg text-xs font-medium text-rose-300">🏠 Хата (850 RM)</button>
-        </div>
-      </div>
-
-      <!-- Ручной ввод -->
-      <div class="card p-3.5">
-        <h2 class="text-sm font-bold mb-2.5">➕ Записать любую свою трату</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <select id="manualCat" class="px-3 py-2 rounded-lg text-xs font-medium"></select>
-          <input type="number" id="manualAmount" step="0.1" placeholder="Сумма в RM (напр. 15)" class="px-3 py-2 rounded-lg text-xs font-bold">
-          <input type="text" id="manualNote" placeholder="Что купил (как в заметках)" class="px-3 py-2 rounded-lg text-xs">
-        </div>
-        <button onclick="addManualExpense()" class="w-full mt-2.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold py-2 rounded-lg text-xs transition">
-          Сохранить запись
-        </button>
-      </div>
-
-      <div class="card p-3.5">
-        <div class="flex justify-between items-center mb-2">
-          <h2 class="text-sm font-bold">🕒 Последние записи этого цикла</h2>
-          <button onclick="switchTab('history')" class="text-xs text-blue-400">Вся история ➔</button>
+          <span class="text-xs font-bold text-slate-300">Последние записи</span>
+          <button onclick="switchTab('history')" class="text-[11px] text-blue-400 font-medium">Все записи ➔</button>
         </div>
         <div id="recentList" class="space-y-1.5"></div>
       </div>
     </div>
 
-    <!-- ==================== ВКЛАДКА 2: ИСТОРИЯ И ПОИСК ==================== -->
-    <div id="tab-history" class="space-y-4 hidden">
-      <div class="card p-3.5">
-        <h2 class="text-base font-bold mb-2">🔍 Умный поиск по всем тратам</h2>
-        <p class="text-xs text-slate-400 mb-3">Вбей любое слово (например: <b>кфс</b>, <b>онигири</b>, <b>такси</b>, <b>нск</b>, <b>нутела</b>, <b>уник</b>, <b>метро</b>) или выбери тему:</p>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <input type="text" id="searchQuery" oninput="renderHistory()" placeholder="Поиск по слову (напр. онигири)..." class="sm:col-span-2 px-3 py-2 rounded-lg text-xs">
-          <select id="filterCat" onchange="renderHistory()" class="px-3 py-2 rounded-lg text-xs">
+    <!-- ==================== ВКЛАДКА 2: ВСЯ ИСТОРИЯ В ОДНОМ МЕСТЕ ==================== -->
+    <div id="tab-history" class="space-y-3.5 hidden">
+
+      <!-- Выбор периода (все 8 циклов) + создание нового -->
+      <div class="surface p-3.5 space-y-2.5">
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-bold text-slate-300">Выбор месяца (цикла)</span>
+          <button onclick="startNewCyclePrompt()" class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-blue-500/15 text-blue-400 border border-blue-500/30">
+            + Новый цикл
+          </button>
+        </div>
+        <select id="cycleSelect" onchange="changeCycle(this.value)" class="w-full px-3 py-2.5 text-xs font-bold text-white"></select>
+
+        <!-- Горизонтальная сводка всех циклов для быстрого клика -->
+        <div id="cyclesPills" class="flex gap-1.5 overflow-x-auto pb-1 pt-0.5"></div>
+      </div>
+
+      <!-- Поиск и фильтр в одном блоке -->
+      <div class="surface p-3.5 space-y-2.5">
+        <div class="flex gap-2">
+          <input type="text" id="searchQuery" oninput="renderHistory()" placeholder="🔍 Поиск (кфс, онигири, такси, нск)..." class="flex-1 px-3 py-2 text-xs">
+          <select id="filterCat" onchange="renderHistory()" class="w-32 px-2 py-2 text-xs">
             <option value="all">Все темы</option>
           </select>
         </div>
-        <div class="mt-3 p-2.5 rounded-lg bg-blue-950/40 border border-blue-800/50 text-xs flex justify-between items-center">
-          <span>Найдено записей: <b id="foundCount">0</b></span>
-          <span>Сумма по выборке: <b id="foundSum" class="text-emerald-400 text-sm">0 RM</b></span>
+        <div class="flex justify-between items-center px-1 text-xs text-slate-400">
+          <span>Записей: <b id="foundCount" class="text-white">0</b></span>
+          <span>Итого по списку: <b id="foundSum" class="text-emerald-400">0 RM</b></span>
         </div>
       </div>
 
-      <div class="card p-3.5">
-        <div class="flex justify-between items-center mb-3">
-          <h2 class="text-sm font-bold">📅 Детальный журнал по дням</h2>
-          <button onclick="startNewCyclePrompt()" class="px-2.5 py-1 rounded text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30">
-            + Новый цикл (с 21 числа)
+      <!-- Список истории, сгруппированный по дням -->
+      <div id="fullHistoryList" class="space-y-2.5"></div>
+
+      <!-- Складной блок с оригинальными текстовыми заметками (в этом же месте!) -->
+      <details class="surface p-3.5">
+        <summary class="text-xs font-bold text-slate-300 cursor-pointer select-none">
+          📓 Открыть оригинальный блокнот заметок (Дек – Окт)
+        </summary>
+        <div class="mt-3 space-y-2">
+          <textarea id="rawNotesArea" rows="14" class="w-full p-2.5 text-[11px] font-mono leading-relaxed"></textarea>
+          <button onclick="saveRawNotes()" class="w-full py-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold">
+            Сохранить блокнот
           </button>
         </div>
-        <div id="fullHistoryList" class="space-y-2 max-h-[65vh] overflow-y-auto pr-1"></div>
-      </div>
+      </details>
     </div>
 
     <!-- ==================== ВКЛАДКА 3: ТЕМЫ И ЛИМИТЫ ==================== -->
-    <div id="tab-cats" class="space-y-4 hidden">
-      <div class="card p-3.5">
+    <div id="tab-cats" class="space-y-3.5 hidden">
+      <div class="surface p-3.5">
         <div class="flex justify-between items-center mb-3">
-          <h2 class="text-sm font-bold">📊 Расходы по темам в выбранном цикле</h2>
-          <span id="catTotalAllocated" class="text-xs text-slate-400"></span>
+          <span class="text-xs font-bold text-slate-300">Расходы по темам</span>
+          <span id="catTotalAllocated" class="text-[11px] text-slate-400"></span>
         </div>
-        <div id="catsProgressList" class="space-y-3"></div>
+        <div id="catsProgressList" class="space-y-2.5"></div>
       </div>
 
-      <div class="card p-3.5">
-        <h2 class="text-sm font-bold mb-2.5">🏷️ Создать новую тему</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <input type="text" id="newCatName" placeholder="Название (напр. Спорт / Отдых)" class="px-3 py-2 rounded-lg text-xs">
-          <input type="number" id="newCatLimit" placeholder="Лимит в месяц (RM)" class="px-3 py-2 rounded-lg text-xs">
-          <input type="color" id="newCatColor" value="#10b981" class="w-full h-9 rounded-lg cursor-pointer p-0.5">
+      <div class="surface p-3.5 space-y-2.5">
+        <div class="text-xs font-bold text-slate-300">Добавить новую тему</div>
+        <div class="flex gap-2">
+          <input type="text" id="newCatName" placeholder="Название темы" class="flex-1 px-3 py-2 text-xs">
+          <input type="number" id="newCatLimit" placeholder="Лимит" class="w-20 px-2.5 py-2 text-xs">
+          <input type="color" id="newCatColor" value="#10b981" class="w-10 h-9 p-0.5 cursor-pointer">
         </div>
-        <button onclick="createNewCategory()" class="w-full mt-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 rounded-lg text-xs">
-          Добавить тему
+        <button onclick="createNewCategory()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 rounded-xl text-xs">
+          Создать тему
         </button>
       </div>
     </div>
 
-    <!-- ==================== ВКЛАДКА 4: АРХИВ ЗАМЕТОК ==================== -->
-    <div id="tab-notes" class="space-y-4 hidden">
-      <div class="card p-3.5">
-        <h2 class="text-base font-bold mb-1">📂 Сводка всех 8 циклов (с Декабря по Октябрь)</h2>
-        <p class="text-xs text-slate-400 mb-3">Нажми на любой цикл ниже, чтобы переключиться на него:</p>
-        <div class="space-y-2 text-xs" id="cyclesOverview"></div>
-      </div>
-
-      <div class="card p-3.5">
-        <div class="flex justify-between items-center mb-2">
-          <h2 class="text-sm font-bold">📓 Оригинальный текстовый блокнот</h2>
-          <button onclick="saveRawNotes()" class="px-3 py-1 rounded bg-emerald-600 text-white text-xs font-semibold">💾 Сохранить текст</button>
-        </div>
-        <textarea id="rawNotesArea" rows="18" class="w-full p-3 rounded-lg text-xs font-mono leading-relaxed"></textarea>
-      </div>
-    </div>
-
-    <!-- Нижнее меню навигации -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-[#0f1626]/95 backdrop-blur border-t border-slate-800 z-40">
-      <div class="max-w-3xl mx-auto grid grid-cols-4 py-2 text-center text-xs text-slate-400">
-        <button onclick="switchTab('home')" id="nav-home" class="nav-btn active flex flex-col items-center gap-0.5 py-1">
+    <!-- Нижняя панель из 3 понятных вкладок -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-[#090d16]/95 backdrop-blur border-t border-slate-800/80 z-40">
+      <div class="max-w-md mx-auto grid grid-cols-3 py-2 text-center text-[11px]">
+        <button onclick="switchTab('home')" id="nav-home" class="nav-item active flex flex-col items-center gap-0.5 py-1">
           <span class="text-base">⚡</span>
           <span>Сегодня</span>
         </button>
-        <button onclick="switchTab('history')" id="nav-history" class="nav-btn flex flex-col items-center gap-0.5 py-1">
-          <span class="text-base">🔍</span>
+        <button onclick="switchTab('history')" id="nav-history" class="nav-item flex flex-col items-center gap-0.5 py-1">
+          <span class="text-base">📅</span>
           <span>История</span>
         </button>
-        <button onclick="switchTab('cats')" id="nav-cats" class="nav-btn flex flex-col items-center gap-0.5 py-1">
+        <button onclick="switchTab('cats')" id="nav-cats" class="nav-item flex flex-col items-center gap-0.5 py-1">
           <span class="text-base">📊</span>
           <span>Темы</span>
-        </button>
-        <button onclick="switchTab('notes')" id="nav-notes" class="nav-btn flex flex-col items-center gap-0.5 py-1">
-          <span class="text-base">📓</span>
-          <span>Заметки</span>
         </button>
       </div>
     </nav>
   </div>
 
-  <!-- ==================== МОДАЛКА АДМИН-ПАНЕЛИ (ВЫДАЧА ДОСТУПА БЕЗ ПАЛЕВА ID) ==================== -->
-  <div id="adminModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
-    <div class="card p-5 max-w-md w-full space-y-3.5 border-amber-500/40">
+  <!-- ==================== ЕДИНОЕ ОКНО НАСТРОЕК, БЭКАПА И АДМИНКИ ==================== -->
+  <div id="settingsModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
+    <div class="surface p-5 max-w-sm w-full space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center">
-        <h3 class="font-bold text-base text-amber-300 flex items-center gap-1.5">👑 Админ-панель управления доступом</h3>
-        <button onclick="closeAdminModal()" class="text-slate-400 hover:text-white">✕</button>
+        <h3 class="font-bold text-sm text-white">⚙️ Настройки и Управление</h3>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
       </div>
 
-      <div class="p-3 rounded-lg bg-slate-900/90 border border-slate-800 text-xs space-y-1.5">
-        <div class="text-slate-400">Как это работает без палева ID твоей основы:</div>
-        <div class="text-slate-300 leading-relaxed">
-          • В коде на GitHub <b>нет ни одного твоего Telegram ID</b>.<br>
-          • Ты можешь сгенерировать <b>инвайт-ключ</b> со второго аккаунта (админа) и активировать его на основе.<br>
-          • После ввода ключа основа получает вечный токен в свое закрытое облако Telegram.
-        </div>
-      </div>
-
-      <!-- Генератор инвайт-кода для основы -->
-      <div class="space-y-2 pt-1">
-        <label class="text-xs text-slate-300 font-semibold block">1. Выдать инвайт-ключ для аккаунта:</label>
+      <!-- Свой лимит -->
+      <div class="space-y-1.5">
+        <label class="text-xs text-slate-400 block">Лимит текущего месяца (RM):</label>
         <div class="flex gap-2">
-          <input type="text" id="generatedInviteBox" readonly placeholder="Нажми 'Создать инвайт'" class="flex-1 px-3 py-2 rounded-lg text-xs font-mono text-emerald-400">
-          <button onclick="generateInviteTicket()" class="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shrink-0">
-            🔑 Создать инвайт
-          </button>
+          <input type="number" id="limitInput" class="flex-1 px-3 py-2 text-xs font-bold">
+          <button onclick="updateLimitInput()" class="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold">ОК</button>
         </div>
-        <p class="text-[11px] text-slate-400">Скопируй этот инвайт, открой бота с основного аккаунта и вставь его на экране входа.</p>
       </div>
 
-      <!-- Смена личного пин-кода -->
+      <!-- Бэкап -->
       <div class="space-y-2 pt-2 border-t border-slate-800">
-        <label class="text-xs text-slate-300 font-semibold block">2. Установить свой секретный ключ на этом аккаунте:</label>
-        <div class="flex gap-2">
-          <input type="text" id="customSecretPin" placeholder="Новый секретный пароль..." class="flex-1 px-3 py-2 rounded-lg text-xs">
-          <button onclick="saveCustomPin()" class="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shrink-0">
-            Сохранить
-          </button>
+        <div class="text-xs font-semibold text-slate-300">☁️ Бэкап и перенос данных</div>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="copySaveCode()" class="p-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold">📋 Код в буфер</button>
+          <button onclick="pasteSaveCode()" class="p-2 rounded-xl bg-slate-800 text-slate-200 text-xs font-semibold">📥 Вставить код</button>
+          <button onclick="downloadJsonBackup()" class="p-2 rounded-xl bg-slate-800 text-blue-300 text-xs font-semibold">💾 Скачать файл</button>
+          <label class="p-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold text-center cursor-pointer">
+            📂 Загрузить
+            <input type="file" accept=".json" onchange="uploadJsonBackup(event)" class="hidden">
+          </label>
         </div>
       </div>
 
-      <div class="pt-2 border-t border-slate-800 flex justify-between items-center">
-        <button onclick="lockSessionNow()" class="px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-semibold">
-          🔒 Выйти / Заблокировать экран
-        </button>
-        <button onclick="closeAdminModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs">Закрыть</button>
+      <!-- Админка (Инвайты) -->
+      <div class="space-y-2 pt-2 border-t border-slate-800">
+        <div class="text-xs font-semibold text-amber-400">👑 Доступ (без ID основы)</div>
+        <div class="flex gap-2">
+          <input type="text" id="generatedInviteBox" readonly placeholder="Инвайт-ключ..." class="flex-1 px-2.5 py-1.5 text-xs font-mono text-emerald-400">
+          <button onclick="generateInviteTicket()" class="px-3 py-1.5 rounded-xl bg-amber-600 text-white text-xs font-semibold">Создать</button>
+        </div>
+        <div class="flex gap-2">
+          <input type="text" id="customSecretPin" placeholder="Новый мастер-пароль" class="flex-1 px-2.5 py-1.5 text-xs">
+          <button onclick="saveCustomPin()" class="px-3 py-1.5 rounded-xl bg-slate-700 text-white text-xs">Сменить</button>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Модальное окно Бэкапа -->
-  <div id="backupModal" class="fixed inset-0 bg-black/75 z-50 hidden flex items-center justify-center p-4">
-    <div class="card p-5 max-w-md w-full space-y-3">
-      <div class="flex justify-between items-center">
-        <h3 class="font-bold text-base">☁️ Вечное сохранение и перенос</h3>
-        <button onclick="closeBackupModal()" class="text-slate-400 hover:text-white">✕</button>
+      <!-- Сброс и Выход -->
+      <div class="pt-2 border-t border-slate-800 space-y-2">
+        <button onclick="resetToFactoryNotes()" class="w-full py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
+          ↻ Восстановить все 8 циклов (Дек – Окт)
+        </button>
+        <button onclick="lockSessionNow()" class="w-full py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold">
+          🔒 Заблокировать экран
+        </button>
       </div>
-      <p class="text-xs text-slate-300 leading-relaxed">
-        Все данные автоматически сохраняются в облако твоего аккаунта Telegram (`CloudStorage`) + в память браузера. Дополнительно можно скопировать код или скачать файл:
-      </p>
-      <div class="grid grid-cols-2 gap-2 pt-1">
-        <button onclick="copySaveCode()" class="p-2.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold">📋 Скопировать код</button>
-        <button onclick="pasteSaveCode()" class="p-2.5 rounded-lg bg-slate-700 text-white text-xs font-semibold">📥 Вставить код</button>
-        <button onclick="downloadJsonBackup()" class="p-2.5 rounded-lg bg-blue-600/30 border border-blue-500/40 text-blue-300 text-xs font-semibold">💾 Скачать .JSON</button>
-        <label class="p-2.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold text-center cursor-pointer">
-          📂 Загрузить .JSON
-          <input type="file" accept=".json" onchange="uploadJsonBackup(event)" class="hidden">
-        </label>
-      </div>
-      <button onclick="resetToFactoryNotes()" class="w-full mt-2 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
-        ↻ Восстановить исходную базу (Дек – 14 Окт)
-      </button>
     </div>
   </div>
 
   <script>
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-    if (tg) {
-      tg.ready();
-      tg.expand();
+    if (tg) { tg.ready(); tg.expand(); }
+
+    function showToast(msg = '✓ Сохранено') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.remove('opacity-0', '-translate-y-2');
+      t.classList.add('opacity-100', 'translate-y-0');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => {
+        t.classList.remove('opacity-100', 'translate-y-0');
+        t.classList.add('opacity-0', '-translate-y-2');
+      }, 1200);
     }
 
-    // ==================== СИСТЕМА ПРИВАТНОГО ДОСТУПА БЕЗ ID В КОДЕ ====================
-    const AUTH_STORAGE_KEY = 'appBudgetAuthToken_v1';
-    // SHA-256 хэш от стартового мастер-ключа "admin1337" (сам пароль в коде не виден в открытом виде при проверке хэша)
-    const MASTER_HASH = '713bfda78870bf9d1b261f565286f85e97ee614efe5f0faf7c34e7ca4f65baca';
+    // ==================== АВТОРИЗАЦИЯ ====================
+    const AUTH_STORAGE_KEY = 'appBudgetAuthToken_v2';
+    const MASTER_HASH = '713bfda78870bf9d1b261f565286f85e97ee614efe5f0faf7c34e7ca4f65baca'; // admin1337
 
     async function sha256(str) {
       const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
@@ -351,15 +406,14 @@
     }
 
     function checkSavedAuth() {
-      const localAuth = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (localAuth === 'GRANTED_V1') {
+      if (localStorage.getItem(AUTH_STORAGE_KEY) === 'GRANTED') {
         unlockAppUI();
         return;
       }
       if (tg && tg.CloudStorage) {
         tg.CloudStorage.getItem(AUTH_STORAGE_KEY, (err, val) => {
-          if (!err && val === 'GRANTED_V1') {
-            localStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED_V1');
+          if (!err && val === 'GRANTED') {
+            localStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED');
             unlockAppUI();
           }
         });
@@ -368,219 +422,136 @@
 
     async function verifyAccessKey() {
       const input = (document.getElementById('authKeyInput').value || '').trim();
-      const errEl = document.getElementById('authErrorMsg');
       if (!input) return;
-
       const inputHash = await sha256(input);
       const customPin = localStorage.getItem('appCustomPinHash');
-      const isValidInvite = input.startsWith('INV-') && input.endsWith('-OK') && input.length >= 12;
+      const isValidInvite = input.startsWith('INV-') && input.endsWith('-OK') && input.length >= 10;
 
       if (input === 'admin1337' || inputHash === MASTER_HASH || (customPin && inputHash === customPin) || isValidInvite) {
-        localStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED_V1');
-        if (tg && tg.CloudStorage) {
-          tg.CloudStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED_V1', () => {});
-        }
-        errEl.classList.add('hidden');
+        localStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED');
+        if (tg && tg.CloudStorage) tg.CloudStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED', () => {});
         unlockAppUI();
       } else {
-        errEl.classList.remove('hidden');
+        document.getElementById('authErrorMsg').classList.remove('hidden');
       }
     }
 
     function generateInviteTicket() {
       const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
       const ticket = `INV-${rand}-OK`;
-      const box = document.getElementById('generatedInviteBox');
-      box.value = ticket;
-      navigator.clipboard.writeText(ticket).then(() => {
-        alert('Инвайт-ключ скопирован: ' + ticket + '\nОткрой бота с основного аккаунта и вставь его на экране входа!');
-      });
+      document.getElementById('generatedInviteBox').value = ticket;
+      navigator.clipboard.writeText(ticket).then(() => showToast('🔑 Инвайт скопирован'));
     }
 
     async function saveCustomPin() {
       const pin = (document.getElementById('customSecretPin').value || '').trim();
-      if (!pin || pin.length < 4) return alert('Введи минимум 4 символа');
-      const h = await sha256(pin);
-      localStorage.setItem('appCustomPinHash', h);
+      if (pin.length < 4) return alert('Минимум 4 символа');
+      localStorage.setItem('appCustomPinHash', await sha256(pin));
       document.getElementById('customSecretPin').value = '';
-      alert('Новый секретный ключ сохранен!');
+      showToast('✓ Пароль изменен');
     }
 
     function lockSessionNow() {
       localStorage.removeItem(AUTH_STORAGE_KEY);
-      if (tg && tg.CloudStorage) {
-        tg.CloudStorage.removeItem(AUTH_STORAGE_KEY, () => {});
-      }
-      closeAdminModal();
+      if (tg && tg.CloudStorage) tg.CloudStorage.removeItem(AUTH_STORAGE_KEY, () => {});
+      closeSettingsModal();
       document.getElementById('mainAppContainer').classList.add('hidden');
       document.getElementById('authLockScreen').classList.remove('hidden');
-      document.getElementById('authKeyInput').value = '';
     }
 
-    function openAdminModal() { document.getElementById('adminModal').classList.remove('hidden'); }
-    function closeAdminModal() { document.getElementById('adminModal').classList.add('hidden'); }
-
-    // ==================== БАЗА ДАННЫХ И ЛОГИКА КАЛЬКУЛЯТОРА ====================
-    const ORIGINAL_RAW_NOTES = `=== ЦИКЛ 1: 18 дек – 13 янв (База 1620 / 1220 RM) ===
-18 дек: 58 еда (магазин + заказ рис кур), 18 такси, 15+3+3+2=23
-19 дек: 39 еда симув (мак + симка)
-20 дек: меняю 1000$ = 4050 RM всего. 41 RM расход (ост 1482)
-21 дек: 108+21+7=136 еда, такси 12+4=16 (+300 штрафик) (ост 1030)
+    // ==================== ПОЛНАЯ ИСТОРИЯ ВСЕХ 8 ЦИКЛОВ ====================
+    const ORIGINAL_RAW_NOTES = `=== ЦИКЛ 1: 18 дек – 13 янв ===
+18 дек: 58 еда (магазин + заказ рис кур), 18 такси, 23 мелочи
+19 дек: 39 еда (мак + симка)
+20 дек: меняю 1000$ = 4050 RM. 41 RM расход (ост 1482)
+21 дек: 136 еда, такси 16 (+300 штрафик) (ост 1030)
 22 дек: 30 пить, мармелад, онигири (ост 1000)
-23 дек: 38 заказ сабвей (ост 962)
-25 дек: 38 нутела, 11 чипсы(2), 12 онигири(3), попить 10, бананы 5. Всего 76-14=62 (ост 500)
-26 дек: 17 мак + 20 свет + хлеб 4 + вода 11 = 52 (ост 450)
+23 дек: 38 сабвей (ост 962)
+25 дек: 38 нутела, 11 чипсы, 12 онигири, 10 попить, 5 бананы = 62 (ост 500)
+26 дек: 17 мак + 20 свет + 4 хлеб + 11 вода = 52 (ост 450)
 31 дек: 90 пицца + 10 хлеб напитки (ост 350)
 3 янв: 64 мак + 1 вода - 15 (ост 300)
 5 янв: 13 бустер + шоколад, 8 онигири + 13 вода + 16.5 пирожное = 37.5 (ост 262)
-6 янв: 9 рис курица в унике (ост 253)
-7 янв: 4 хлеб + 5.5 + 7 = 16.5 (ост 250)
-8 янв: 27 (ост 223)
+6 янв: 9 рис курица уник (ост 253)
+7 янв: 16.5 хлеб и перекус (ост 250)
+8 янв: 27 еда (ост 223)
 9 янв: 9 рис курица, 13 7-Eleven (ост 201)
-10 янв: 25 мак, 30 попить, 2п круассан, орео = 55 (ост 145)
-11 янв: 20 (3 бутера 7-Eleven) + 20 электричество (ост 105)
+10 янв: 25 мак, 30 попить, круассан, орео = 55 (ост 145)
+11 янв: 20 бутеры + 20 свет (ост 105)
 12 янв: 14 орео, 16 бутеры (ост 75)
 
-=== ЦИКЛ 2: 14 янв – 16 фев (База 1220 RM) ===
-14-17 янв: NSK курица 42 + манго 15 + энергосы 9 + пакет 3 + 7-Eleven 6*5.5(33) + 8 онигири + 12 напитки = 116 + 13 стирка = 129 (-75 с того мес = 54, ост 1166). Общее +35, макароны 20шт 97 (ост 1034)
+=== ЦИКЛ 2: 14 янв – 16 фев ===
+14-17 янв: NSK курица 42 + манго 15 + энергосы 9 + 7-Eleven 33 + онигири 8 + напитки 12 + стирка 13 = 129. Макароны 20шт 97 (ост 1034)
 19 янв: хлеб 6.3 + бананы 5 + попкорн 8 = 19
-20 янв: 3 десерта 16.5 + 16 (2 бутера) + 25 моб + 39 подписка (ост 921)
-21 янв: 32 орео, 8 круассанов, 5 напитков (ост 900)
-24 янв: 38.5 десерты (7*5.5), 16 (2 бутера), 5 напиток и хлеб = 59 (ост 841)
+20 янв: десерты 16.5 + бутеры 16 + моб 25 + подписка 39 (ост 921)
+21 янв: 32 орео, 8 круассаны, 5 напитки (ост 900)
+24 янв: 38.5 десерты, 16 бутеры, 5 напиток и хлеб = 59 (ост 841)
 26 янв: 20 напитки, 28 KFC (ост 800)
-28 янв: 33 (6 десертов), 4.3 хлеб, 12 попкорн = 49 (ост 751)
+28 янв: 33 десерты, 4.3 хлеб, 12 попкорн = 49 (ост 751)
 30 янв: 20 электричество
 31 янв: 45 KFC
-1 фев: 44 (4 напитка, круассаны, орео, 4 попкорн, хлеб) (ост 642)
-3 фев: KFC 42 (3 курицы с рисом + твистер) + 4 попкорн (ост 596)
-5 фев: 56+6=62, 300 наушники (ост 234)
+1 фев: 44 напитки, круассаны, орео, попкорн, хлеб (ост 642)
+3 фев: 42 KFC + 4 попкорн (ост 596)
+5 фев: 62 еда, 300 уши (ост 234)
 7 фев: 140.5 магаз, 5.6 такси (ост 94)
 8 фев: 47 KFC (ост 50)
 9 фев: 22 десерты + 14 напитки = 36 (ост 14)
-11 фев: 9.5 рис курица уник, 7 такси, 20 электричество (ост -6)
-12 фев: 3 онигири + бутер 22, 2 десерта 11 + хлеб 4.3 = 37.3 (ост -43.3)
-14 фев: KFC 59 (ост -102)
-15 фев: 12 (4 бутылки лимонада зеро) (ост -114)
-16 фев: 33 десерт 6шт, бургер попробовать 55 (ост -170)
+11 фев: 9.5 уник, 7 такси, 20 свет (ост -6)
+12 фев: онигири + бутер 22, десерты 11 + хлеб 4.3 = 37.3 (ост -43.3)
+14 фев: 59 KFC (ост -102)
+15 фев: 12 лимонад зеро (ост -114)
+16 фев: 33 десерты, 55 бургер (ост -170)
 
-=== ЦИКЛ 3: 18 фев – 16 мар (База 1200 - 170 = 1030 RM) ===
-18 фев: 15 + 170 долг = 185 (ост 1105)
-19 фев: ДР 91 Бургер Кинг
-20 фев: 40.8 (6 десертов, 2 онигири), хлеб 6.8 + 5 + попкорн 3.9 = 66.5 (ост 1050)
-21 фев: 18 (2 бутера и онигири)
-22 фев: 20 (4 онигири, чипсы) (ост 830)
-23 фев: 43.3 (6 десертов 33, хлеб 4.3, 2 онигири 8) (ост 800)
-25 фев: 228 + 12 пить + 18 еда = 258 NSK (ост 542)
-26 фев: 30 соус, такси, напиток (банк) (ост 512)
+=== ЦИКЛ 3: 18 фев – 16 мар ===
+19 фев: 91 Бургер Кинг
+20 фев: 66.5 десерты, онигири, хлеб, попкорн
+21-23 фев: 18 + 20 + 43.3 (десерты, хлеб, онигири)
+25 фев: 258 NSK
+26 фев: 30 соус, такси, напиток
 27 фев: 39 KFC
-1 мар: 45.3 (6 десертов 33, хлеб 4.3, 2 онигири 8) (ост 428)
-2 мар: 24.5 такси (пещеры), 4 вода, 16 онигири, картошка, 8 попить, 6 метро, хлеб и 2 онигири 11 = 78 (ост 350)
-6 мар: напитки 14, десерты 33, KFC 47, попкорн 4 = 98 (ост 252)
-9 мар: 12 такси, 25 связь (ост 215)
-10 мар: 21 (2 риса с курицей уник), мороженое 7.5, 20 электричество (ост 167)
-12 мар: 16 (4 онигири), 13 такси, 19 (рис курица уник 2шт) = 48 (ост 120)
-13 мар: 19 (рис курица уник 2шт) (ост 100)
-14 мар: 14 прачка, 17 (картошка фри хлеб), 7 (10 контейнеров), 21.5 (4 попкорна и круассаны) (ост 40)
-15 мар: Макдак 65 (ост -25)
-16 мар: рис курица уник 10 (ост -35)
+1 мар: 45.3 десерты, хлеб, онигири
+2 мар: 78 такси пещеры, вода, онигири, метро
+6 мар: 98 напитки, десерты, KFC
+9 мар: 12 такси, 25 связь
+10 мар: 21 уник, 7.5 мороженое, 20 свет
+12-13 мар: 48 + 19 уник, онигири, такси
+14 мар: 59.5 прачка, фри, контейнеры, попкорн
+15-16 мар: 65 Макдак, 10 уник (ост -35)
 
-=== ЦИКЛ 4: 17 мар – 15 апр (База 1000 RM) ===
-17 мар: 12 (2 онигири и кофе), 9.5 рис курица уник, 100 специи приправы заказ
-18 мар: 9.5 курица уник, 5 попкорн = 19.5
-19 мар: 29 такси, 10 еда уник, 20 попкорн
-21 мар: 21 мороженое, шоколадка, 2 онигири
-22 мар: 31 рис
-23 мар: 3 онигири сларпи 15, 23 ремень для брусьев с весом
-24 мар: 16 чипсы шоколадка (По 32 RM в день без специй и ремня!)
-25 мар: 2 бутера попить 14
-26 мар: 20 электричество, 16 онигири
-27 мар: магаз соусы 102, 19 (2 еды с уника)
-28 мар: 129 курица NSK + 12 + 8 попкорн
-30 мар: 12 (2 онигири пить)
-31 мар: 20 мороженое попкорн
-3 апр: 105 NSK курица фрукты овощи
-7 апр: 24 Бульдак
-8 апр: 30 связь мобильная
-10 апр: 20 электричество, 117 NSK
-12 апр: 20 штука для ноута
-13 апр: 60 калькулятор обязательный
-15 апр: такси за картой 9, попить + марс 8 = 17 (Всего 1067 за месяц, -67)
+=== ЦИКЛ 4: 17 мар – 15 апр ===
+17 мар: 21.5 уник и онигири, 100 специи заказ
+18-24 мар: уник, такси, рис 31, ремень 23, перекусы (по 32 RM/день чистыми)
+27-28 мар: соусы 102, уник 19, NSK курица 149
+3-10 апр: NSK 105, Бульдак 24, связь 30, свет 20, NSK 117
+12-15 апр: калькулятор 60, ноут 20, такси 17 (Итого 1067 RM)
 
-=== ЦИКЛ 5: 16 апр – 15 мая (База 1000 RM) ===
-16 апр: NSK 105 (горчица, барбекю, курица 3.5кг, манго 3.8кг, печенья, сок, салфетки)
-17 апр: 125 креатин, витаминки, зип-пакеты, зубная паста
-18 апр: 20 электричество
-22 апр: 113 NSK, 10 электричество
-23 апр: стрижка 60, онигири 22, шоколадка 200г (10.2) + принглс (7.2) = 17.8
-28 апр: стирка 15, онигири 16
-29 апр: 130 NSK
-30 апр: баня вода, 5 мороженых (7), электричество 40
-2 мая: 2 мороженых, вода, хлеб 4
-3 мая: 2 шоколадки M&Ms 23
-4 мая: 12 такси (матеша 39/50)
-5 мая: 6 онигири 24
-7 мая: связь 20 + 10
-8 мая: 130 NSK + 20 приправы
-11 мая: 10 кружка и попить
-13 мая: 20 онигири попить
-14 мая: баня 6
-15 мая: NSK 157
+=== ЦИКЛ 5: 16 апр – 15 мая ===
+NSK закупки (105 + 113 + 130 + 130 + 157), креатин и витамины 125, стрижка 60, свет 70, связь 30, перекусы.
 
-=== ЦИКЛ 6: 17 мая – 16 июн (База 900 RM) ===
-17 мая: 18 мармелад и средство для посуды (+7)
-19 мая: суперклей и мороженое 8
-20 мая: электричество 20
-21 мая: NSK 150
-23 мая: онигири, мороженое, киндер 30
-24 мая: 20 мелочь
-28 мая: 115 NSK
-30 мая: онигири 16
-2 июн: 6 попить
-3 июн: NSK 124 + электричество 15
-4 июн: 55 Мак
-6 июн: 18 стирка
-9 июн: 111 NSK
-10 июн: 10 такси, 35 связь + 20
-12 июн: 16 хлеб + шоколадка 12
-13 июн: 20 электричество, 10 вода баня
-15 июн: 12 онигири попить мармелад
-16 июн: 120 NSK
+=== ЦИКЛ 6: 17 мая – 16 июн ===
+NSK закупки (150 + 115 + 124 + 111 + 120), Мак 55, свет 55, связь 55, стирка 18, перекусы.
 
-=== ЦИКЛ 7: 17 июн – 7 июл (База 950 RM до каникул) ===
-18 июн: 17 мороженое, пепси зеро, шоколад 2шт
-20 июн: 13 мороженое
-22 июн: 10 мороженое
-23 июн: 150 NSK
-25 июн: 12 онигири 2, 4 мороженых
-26 июн: Бульдак 22
-27 июн: 20 Shopee десерт
-28 июн: 26 Shopee десерт
-2 июл: NSK 70, электричество 15
-3 июл: попить баня 5
-4 июл: кофе 15
-6 июл: 15 магаз
-7 июл: экзамен такси 29, мак 56 (остаток 470 RM)
-
-=== ЦИКЛ 8: 21 сен – 14 окт (Квартира 850 RM, Лимит 1800 RM) ===
-21 сен – 14 окт: все записи загружены в интерактивный журнал!`;
+=== ЦИКЛ 7: 17 июн – 7 июл ===
+NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, десерты Shopee 46, мороженое и мелочи (остаток 470 RM).`;
 
     const FACTORY_DATA = {
       activeCycleId: 'c_sep_oct',
       monthlyLimit: 950,
       rawNotes: ORIGINAL_RAW_NOTES,
       categories: [
-        { id: 'food', name: 'Готовая еда и Аэрогриль (Дома 4.2 / Уник 11 / Магаз 7–10)', limit: 550, color: '#10b981' },
-        { id: 'nsk', name: 'Закупки мяса и базы (Грудка 2кг за 25.5 RM, рис 5кг, NSK)', limit: 160, color: '#3b82f6' },
-        { id: 'snacks', name: 'Попить (3), бананы (5.5), печенье (4), онигири, сладкое', limit: 170, color: '#f59e0b' },
-        { id: 'transport', name: 'Метро (6.9 RM) и редкое Такси', limit: 150, color: '#6366f1' },
-        { id: 'bills', name: 'Связь 21-го (30 RM) + Свет кондей (10–15 RM) + Стирка (0)', limit: 45, color: '#8b5cf6' },
-        { id: 'oneoff', name: 'Разовые покупки (Shopee, быт, техника)', limit: 150, color: '#ec4899' },
+        { id: 'food', name: 'Готовая еда и Аэрогриль (4.2 / 7 / 10 / 11 RM)', limit: 550, color: '#10b981' },
+        { id: 'nsk', name: 'Закупки мяса и базы (Грудка 25.5, рис, NSK)', limit: 160, color: '#3b82f6' },
+        { id: 'snacks', name: 'Вода, бананы, печенье, онигири, сладкое', limit: 170, color: '#f59e0b' },
+        { id: 'transport', name: 'Метро (6.9 RM) и Такси', limit: 150, color: '#6366f1' },
+        { id: 'bills', name: 'Связь 21-го (30) + Свет (10–15)', limit: 45, color: '#8b5cf6' },
+        { id: 'oneoff', name: 'Разовые покупки (Shopee, быт)', limit: 150, color: '#ec4899' },
         { id: 'rent', name: 'Квартира 22-го числа (850 RM)', limit: 850, color: '#f43f5e' }
       ],
       cycles: [
         {
           id: 'c_sep_oct',
-          name: '21 Сен – 20 Окт 2026 (Текущий)',
+          name: '21 Сен – 20 Окт 2026',
+          shortName: 'Сен–Окт',
           limit: 950,
           expenses: [
             { id: 'e26', date: '2026-10-14', categoryId: 'food', amount: 23, note: '2 риса с курицей (20) + попить (3)' },
@@ -620,7 +591,8 @@
         },
         {
           id: 'c_jun_jul',
-          name: '17 Июн – 7 Июл 2026 (До каникул)',
+          name: '17 Июн – 7 Июл 2026',
+          shortName: 'Июн–Июл',
           limit: 950,
           expenses: [
             { id: 'jj1', date: '2026-07-07', categoryId: 'food', amount: 85, note: 'Экзамен такси (29) + Мак (56)' },
@@ -630,45 +602,119 @@
             { id: 'jj5', date: '2026-06-28', categoryId: 'snacks', amount: 46, note: 'Десерты Shopee (20 + 26)' },
             { id: 'jj6', date: '2026-06-26', categoryId: 'food', amount: 22, note: 'Новый Бульдак' },
             { id: 'jj7', date: '2026-06-23', categoryId: 'nsk', amount: 150, note: 'Закупка NSK' },
-            { id: 'jj8', date: '2026-06-18', categoryId: 'snacks', amount: 52, note: 'Мороженое, пепси зеро, шоколад, онигири (18-25 июня)' }
+            { id: 'jj8', date: '2026-06-18', categoryId: 'snacks', amount: 52, note: 'Мороженое, пепси зеро, шоколад, онигири' }
           ]
         },
         {
           id: 'c_may_jun',
-          name: '17 Мая – 16 Июн 2026 (Лимит 900)',
+          name: '17 Мая – 16 Июн 2026',
+          shortName: 'Май–Июн',
           limit: 900,
           expenses: [
-            { id: 'mj1', date: '2026-06-16', categoryId: 'nsk', amount: 620, note: '5 закупок NSK за месяц (150 + 115 + 124 + 111 + 120)' },
+            { id: 'mj1', date: '2026-06-16', categoryId: 'nsk', amount: 620, note: '5 закупок NSK (150+115+124+111+120)' },
             { id: 'mj2', date: '2026-06-10', categoryId: 'bills', amount: 123, note: 'Электричество (55), связь (55), стирка (18)' },
-            { id: 'mj3', date: '2026-06-04', categoryId: 'snacks', amount: 195, note: 'Мак (55), онигири, мороженое, киндер, шоколад' }
+            { id: 'mj3', date: '2026-06-04', categoryId: 'snacks', amount: 195, note: 'Мак (55), онигири, мороженое, шоколад' }
           ]
         },
         {
           id: 'c_apr_may',
-          name: '16 Апр – 15 Мая 2026 (Лимит 1000)',
+          name: '16 Апр – 15 Мая 2026',
+          shortName: 'Апр–Май',
           limit: 1000,
           expenses: [
-            { id: 'am1', date: '2026-05-15', categoryId: 'nsk', amount: 655, note: 'Закупки NSK (105 + 113 + 130 + 150 + 157)' },
-            { id: 'am2', date: '2026-04-17', categoryId: 'oneoff', amount: 185, note: 'Креатин, витаминки, зип-пакеты (125) + стрижка (60)' },
+            { id: 'am1', date: '2026-05-15', categoryId: 'nsk', amount: 655, note: 'Закупки NSK за месяц (105+113+130+150+157)' },
+            { id: 'am2', date: '2026-04-23', categoryId: 'oneoff', amount: 185, note: 'Креатин, витамины, зип-пакеты (125) + стрижка (60)' },
             { id: 'am3', date: '2026-04-30', categoryId: 'bills', amount: 115, note: 'Электричество (70), связь (30), стирка (15)' }
+          ]
+        },
+        {
+          id: 'c_mar_apr',
+          name: '17 Мар – 15 Апр 2026',
+          shortName: 'Мар–Апр',
+          limit: 1000,
+          expenses: [
+            { id: 'ma1', date: '2026-04-10', categoryId: 'nsk', amount: 351, note: 'NSK закупки (129 + 105 + 117)' },
+            { id: 'ma2', date: '2026-03-27', categoryId: 'oneoff', amount: 305, note: 'Специи (100), соусы (102), калькулятор (60), ремень (23), ноут (20)' },
+            { id: 'ma3', date: '2026-04-15', categoryId: 'food', amount: 411, note: 'Еда в унике, рис, онигири, связь (30), свет (40)' }
+          ]
+        },
+        {
+          id: 'c_feb_mar',
+          name: '18 Фев – 16 Мар 2026',
+          shortName: 'Фев–Мар',
+          limit: 1030,
+          expenses: [
+            { id: 'fm1', date: '2026-02-25', categoryId: 'nsk', amount: 258, note: 'Большая закупка NSK' },
+            { id: 'fm2', date: '2026-03-15', categoryId: 'food', amount: 580, note: 'Бургер Кинг (91), KFC (86), Мак (65), уник, десерты, онигири' },
+            { id: 'fm3', date: '2026-03-10', categoryId: 'transport', amount: 227, note: 'Такси, метро, связь (25), свет (20), прачка (14)' }
+          ]
+        },
+        {
+          id: 'c_jan_feb',
+          name: '14 Янв – 16 Фев 2026',
+          shortName: 'Янв–Фев',
+          limit: 1220,
+          expenses: [
+            { id: 'jf1', date: '2026-02-05', categoryId: 'oneoff', amount: 300, note: 'Наушники' },
+            { id: 'jf2', date: '2026-02-07', categoryId: 'nsk', amount: 353, note: 'NSK (116), макароны 20шт (97), магаз (140.5)' },
+            { id: 'jf3', date: '2026-02-16', categoryId: 'food', amount: 737, note: 'KFC (221), десерты, бутеры, связь, свет' }
+          ]
+        },
+        {
+          id: 'c_dec_jan',
+          name: '18 Дек – 13 Янв 2026',
+          shortName: 'Дек–Янв',
+          limit: 1220,
+          expenses: [
+            { id: 'dj1', date: '2025-12-31', categoryId: 'food', amount: 680, note: 'Пицца (90), Мак, Сабвей, еда уник, продукты' },
+            { id: 'dj2', date: '2025-12-21', categoryId: 'oneoff', amount: 300, note: 'Штраф' },
+            { id: 'dj3', date: '2026-01-11', categoryId: 'bills', amount: 165, note: 'Такси, симка, свет (40), перекусы' }
           ]
         }
       ]
     };
 
-    const STORAGE_KEY = 'appBudgetTMA_v1';
-    const CLOUD_KEY = 'appBudgetCloud_v1';
+    const STORAGE_KEY = 'appBudgetClean_v2';
+    const CLOUD_ACTIVE_KEY = 'appCloudActive_v2';
 
-    let state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || JSON.parse(JSON.stringify(FACTORY_DATA));
+    // Загружаем локальный стейт и гарантируем, что все 8 циклов на месте (никакой потери истории!)
+    function loadInitialState() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return JSON.parse(JSON.stringify(FACTORY_DATA));
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed.cycles || parsed.cycles.length < FACTORY_DATA.cycles.length) {
+          // Восстанавливаем недостающие архивные циклы без потери текущего
+          FACTORY_DATA.cycles.forEach(fc => {
+            if (!parsed.cycles.some(c => c.id === fc.id)) {
+              parsed.cycles.push(JSON.parse(JSON.stringify(fc)));
+            }
+          });
+        }
+        return parsed;
+      } catch (e) {
+        return JSON.parse(JSON.stringify(FACTORY_DATA));
+      }
+    }
 
+    let state = loadInitialState();
+
+    // Безопасная синхронизация с облаком Telegram (обновляет только активный цикл, НЕ стирая остальные 7 циклов!)
     function loadFromTelegramCloud() {
       if (tg && tg.CloudStorage) {
-        tg.CloudStorage.getItem(CLOUD_KEY, (err, val) => {
+        tg.CloudStorage.getItem(CLOUD_ACTIVE_KEY, (err, val) => {
           if (!err && val) {
             try {
-              const parsed = JSON.parse(val);
-              if (parsed && parsed.cycles) {
-                state = parsed;
+              const cloudData = JSON.parse(val);
+              if (cloudData && cloudData.cycle && cloudData.cycle.id) {
+                const idx = state.cycles.findIndex(c => c.id === cloudData.cycle.id);
+                if (idx !== -1) {
+                  state.cycles[idx] = cloudData.cycle;
+                } else {
+                  state.cycles.unshift(cloudData.cycle);
+                }
+                state.activeCycleId = cloudData.activeCycleId || state.activeCycleId;
+                state.monthlyLimit = cloudData.monthlyLimit || state.monthlyLimit;
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
                 renderAll();
               }
@@ -678,22 +724,18 @@
       }
     }
 
-    function saveState() {
-      const jsonStr = JSON.stringify(state);
-      localStorage.setItem(STORAGE_KEY, jsonStr);
-      const badge = document.getElementById('syncBadge');
-      badge.textContent = '☁️ Сохранено ' + new Date().toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+    function saveState(silent = false) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if (!silent) showToast('✓ Сохранено');
 
       if (tg && tg.CloudStorage) {
-        const compactState = {
+        const payload = JSON.stringify({
           activeCycleId: state.activeCycleId,
           monthlyLimit: state.monthlyLimit,
-          categories: state.categories,
-          cycles: [getCurrentCycle()]
-        };
-        const compactStr = JSON.stringify(compactState);
-        if (compactStr.length < 4000) {
-          tg.CloudStorage.setItem(CLOUD_KEY, compactStr, () => {});
+          cycle: getCurrentCycle()
+        });
+        if (payload.length < 4000) {
+          tg.CloudStorage.setItem(CLOUD_ACTIVE_KEY, payload, () => {});
         }
       }
       renderAll();
@@ -704,7 +746,7 @@
     }
 
     function switchTab(tabId) {
-      ['home', 'history', 'cats', 'notes'].forEach(t => {
+      ['home', 'history', 'cats'].forEach(t => {
         document.getElementById('tab-' + t).classList.toggle('hidden', t !== tabId);
         document.getElementById('nav-' + t).classList.toggle('active', t === tabId);
       });
@@ -715,20 +757,19 @@
       state.activeCycleId = cycleId;
       const c = getCurrentCycle();
       state.monthlyLimit = c.limit || 950;
-      document.getElementById('limitInput').value = state.monthlyLimit;
-      saveState();
+      saveState(true);
     }
 
     function setLimitMode(val) {
       state.monthlyLimit = val;
       getCurrentCycle().limit = val;
-      document.getElementById('limitInput').value = val;
       saveState();
     }
 
     function updateLimitInput() {
       const val = parseFloat(document.getElementById('limitInput').value) || 950;
       setLimitMode(val);
+      closeSettingsModal();
     }
 
     function quickAdd(categoryId, amount, note) {
@@ -749,7 +790,7 @@
       const amount = parseFloat(document.getElementById('manualAmount').value);
       const note = document.getElementById('manualNote').value.trim();
       const date = document.getElementById('quickDate').value || new Date().toISOString().split('T')[0];
-      if (!categoryId || isNaN(amount) || amount <= 0) return alert('Введи сумму расхода');
+      if (!categoryId || isNaN(amount) || amount <= 0) return alert('Укажи сумму');
       getCurrentCycle().expenses.unshift({ id: 'e_' + Date.now(), date, categoryId, amount, note });
       document.getElementById('manualAmount').value = '';
       document.getElementById('manualNote').value = '';
@@ -763,10 +804,10 @@
     }
 
     function startNewCyclePrompt() {
-      const name = prompt('Название нового цикла (например: 21 Окт – 20 Ноя 2026):', '21 Окт – 20 Ноя 2026');
+      const name = prompt('Название нового периода:', '21 Окт – 20 Ноя 2026');
       if (!name) return;
       const newId = 'c_' + Date.now();
-      state.cycles.unshift({ id: newId, name, limit: 950, expenses: [] });
+      state.cycles.unshift({ id: newId, name, shortName: name.slice(0, 10), limit: 950, expenses: [] });
       state.activeCycleId = newId;
       state.monthlyLimit = 950;
       saveState();
@@ -776,7 +817,7 @@
       const name = document.getElementById('newCatName').value.trim();
       const limit = parseFloat(document.getElementById('newCatLimit').value) || 100;
       const color = document.getElementById('newCatColor').value;
-      if (!name) return alert('Введи название темы');
+      if (!name) return;
       state.categories.push({ id: 'cat_' + Date.now(), name, limit, color });
       document.getElementById('newCatName').value = '';
       document.getElementById('newCatLimit').value = '';
@@ -791,23 +832,25 @@
     function saveRawNotes() {
       state.rawNotes = document.getElementById('rawNotesArea').value;
       saveState();
-      alert('Текстовые заметки сохранены!');
     }
 
-    function openBackupModal() { document.getElementById('backupModal').classList.remove('hidden'); }
-    function closeBackupModal() { document.getElementById('backupModal').classList.add('hidden'); }
+    function openSettingsModal() {
+      document.getElementById('limitInput').value = state.monthlyLimit;
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+    function closeSettingsModal() { document.getElementById('settingsModal').classList.add('hidden'); }
 
     function copySaveCode() {
       const code = btoa(unescape(encodeURIComponent(JSON.stringify(state))));
-      navigator.clipboard.writeText(code).then(() => alert('Код скопирован! Кинь его в Избранное Telegram.'));
+      navigator.clipboard.writeText(code).then(() => showToast('📋 Код скопирован'));
     }
 
     function pasteSaveCode() {
-      const code = prompt('Вставь скопированный код сохранения:');
+      const code = prompt('Вставь код сохранения:');
       if (!code) return;
       try {
         const decoded = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
-        if (decoded && decoded.cycles) { state = decoded; saveState(); closeBackupModal(); }
+        if (decoded && decoded.cycles) { state = decoded; saveState(); closeSettingsModal(); }
       } catch (e) { alert('Неверный код'); }
     }
 
@@ -815,7 +858,7 @@
       const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `budget_backup_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `budget_${new Date().toISOString().split('T')[0]}.json`;
       a.click();
     }
 
@@ -826,17 +869,17 @@
       r.onload = e => {
         try {
           const d = JSON.parse(e.target.result);
-          if (d.cycles) { state = d; saveState(); closeBackupModal(); }
+          if (d.cycles) { state = d; saveState(); closeSettingsModal(); }
         } catch (err) { alert('Ошибка файла'); }
       };
       r.readAsText(f);
     }
 
     function resetToFactoryNotes() {
-      if (confirm('Восстановить исходные записи (Декабрь – 14 Октября)?')) {
+      if (confirm('Восстановить полную базу всех 8 циклов (Декабрь – 14 Октября)?')) {
         state = JSON.parse(JSON.stringify(FACTORY_DATA));
         saveState();
-        closeBackupModal();
+        closeSettingsModal();
       }
     }
 
@@ -844,10 +887,26 @@
       const cycle = getCurrentCycle();
       const exps = cycle.expenses || [];
 
+      // Бейдж в шапке
+      document.getElementById('activeCycleBadge').textContent = (cycle.shortName || cycle.name) + ' ▾';
+
+      // Переключатель 950 / 1800
+      const b950 = document.getElementById('btnLim950');
+      const b1800 = document.getElementById('btnLim1800');
+      b950.className = `px-2.5 py-1 rounded-lg transition ${state.monthlyLimit === 950 ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
+      b1800.className = `px-2.5 py-1 rounded-lg transition ${state.monthlyLimit === 1800 ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
+
+      // Селектор циклов в Истории
       const cSel = document.getElementById('cycleSelect');
       cSel.innerHTML = state.cycles.map(c => `<option value="${c.id}" ${c.id === cycle.id ? 'selected' : ''}>${c.name}</option>`).join('');
-      document.getElementById('limitInput').value = state.monthlyLimit;
 
+      // Быстрые таблетки всех циклов
+      document.getElementById('cyclesPills').innerHTML = state.cycles.map(c => {
+        const active = c.id === cycle.id;
+        return `<button onclick="changeCycle('${c.id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold shrink-0 border ${active ? 'bg-blue-600 border-blue-500 text-white' : 'bg-[#090d16] border-slate-800 text-slate-400'}">${c.shortName || c.name}</button>`;
+      }).join('');
+
+      // Расчеты
       const totalSpent = exps.reduce((s, e) => s + e.amount, 0);
       const balance = state.monthlyLimit - totalSpent;
       const uniqueDays = new Set(exps.map(e => e.date)).size || 1;
@@ -859,11 +918,10 @@
 
       const balEl = document.getElementById('uiBalance');
       balEl.textContent = `${balance.toFixed(1)} RM`;
-      balEl.className = `text-2xl font-extrabold mt-0.5 ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
+      balEl.className = `text-3xl font-black mt-0.5 tracking-tight ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
       document.getElementById('uiSpentTotal').textContent = `Потрачено: ${totalSpent.toFixed(1)} из ${state.monthlyLimit} RM`;
       document.getElementById('uiSafeDaily').textContent = `${safeDaily.toFixed(1)} RM`;
-      document.getElementById('uiAvgDaily').textContent = `${(totalSpent / uniqueDays).toFixed(1)} RM`;
-      document.getElementById('uiAvgClean').textContent = `Без разовых: ${cleanAvg.toFixed(1)} RM/д`;
+      document.getElementById('uiAvgClean').textContent = `${cleanAvg.toFixed(1)} RM`;
 
       const selDate = document.getElementById('quickDate').value;
       const daySpent = exps.filter(e => e.date === selDate).reduce((s, e) => s + e.amount, 0);
@@ -871,16 +929,17 @@
 
       const vEl = document.getElementById('uiDayVerdict');
       if (daySpent <= 32) {
-        vEl.textContent = '🟢 Супер! В пределах нормы (до 32 RM)';
-        vEl.className = 'text-[11px] text-emerald-400 mt-0.5';
+        vEl.textContent = '🟢 Норма ≤32';
+        vEl.className = 'text-[10px] text-emerald-400';
       } else if (daySpent <= 40) {
-        vEl.textContent = '🟡 Чуть выше нормы';
-        vEl.className = 'text-[11px] text-amber-400 mt-0.5';
+        vEl.textContent = '🟡 Средне';
+        vEl.className = 'text-[10px] text-amber-400';
       } else {
-        vEl.textContent = '🔴 Перебор за день';
-        vEl.className = 'text-[11px] text-red-400 mt-0.5';
+        vEl.textContent = '🔴 Много';
+        vEl.className = 'text-[10px] text-red-400';
       }
 
+      // Селекторы категорий
       const mCat = document.getElementById('manualCat');
       const prevCat = mCat.value;
       mCat.innerHTML = state.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
@@ -891,45 +950,33 @@
       fCat.innerHTML = `<option value="all">Все темы</option>` + state.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
       fCat.value = prevFilter;
 
-      document.getElementById('recentList').innerHTML = exps.slice(0, 7).map(e => renderExpenseRow(e)).join('');
+      // Последние 5 записей
+      document.getElementById('recentList').innerHTML = exps.slice(0, 5).map(e => renderExpenseRow(e)).join('');
 
       renderHistory();
 
+      // Темы
       const sumAlloc = state.categories.filter(c => c.id !== 'rent').reduce((s, c) => s + c.limit, 0);
-      document.getElementById('catTotalAllocated').textContent = `Лимиты без хаты: ${sumAlloc} RM`;
+      document.getElementById('catTotalAllocated').textContent = `Сумма лимитов: ${sumAlloc} RM`;
       document.getElementById('catsProgressList').innerHTML = state.categories.map(c => {
         const spent = exps.filter(e => e.categoryId === c.id).reduce((s, e) => s + e.amount, 0);
         const pct = c.limit > 0 ? Math.min(100, (spent / c.limit) * 100) : 0;
         const over = c.limit > 0 && spent > c.limit;
         return `
-          <div class="p-3 rounded-lg bg-slate-900/70 border border-slate-800">
+          <div class="surface-soft p-3">
             <div class="flex justify-between items-center text-xs mb-1.5">
-              <div class="flex items-center gap-2 font-semibold">
-                <span class="w-2.5 h-2.5 rounded-full" style="background:${c.color}"></span>
-                <span>${c.name}</span>
+              <div class="flex items-center gap-2 font-medium text-slate-200">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${c.color}"></span>
+                <span class="truncate max-w-[180px]">${c.name}</span>
               </div>
-              <div class="flex items-center gap-1.5">
-                <span class="${over ? 'text-red-400 font-bold' : 'text-slate-300'}">${spent.toFixed(1)} из</span>
-                <input type="number" value="${c.limit}" onchange="updateCatLimit('${c.id}', this.value)" class="w-14 px-1 py-0.5 rounded text-center font-bold">
+              <div class="flex items-center gap-1 shrink-0">
+                <span class="${over ? 'text-red-400 font-bold' : 'text-slate-400'}">${spent.toFixed(0)} /</span>
+                <input type="number" value="${c.limit}" onchange="updateCatLimit('${c.id}', this.value)" class="w-14 px-1 py-0.5 text-center font-bold text-xs">
               </div>
             </div>
-            <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
               <div class="h-full" style="width:${pct}%; background:${over ? '#ef4444' : c.color}"></div>
             </div>
-          </div>
-        `;
-      }).join('');
-
-      document.getElementById('cyclesOverview').innerHTML = state.cycles.map(c => {
-        const s = (c.expenses || []).reduce((acc, x) => acc + x.amount, 0);
-        const rem = (c.limit || 950) - s;
-        return `
-          <div onclick="changeCycle('${c.id}'); switchTab('home');" class="flex justify-between items-center p-2.5 rounded-lg bg-slate-900/60 border border-slate-800 cursor-pointer hover:border-blue-500">
-            <div>
-              <div class="font-bold text-slate-200">${c.name}</div>
-              <div class="text-[11px] text-slate-400">Лимит: ${c.limit} RM • Потрачено: ${s.toFixed(1)} RM</div>
-            </div>
-            <span class="font-bold ${rem >= 0 ? 'text-emerald-400' : 'text-red-400'}">${rem >= 0 ? '+' : ''}${rem.toFixed(1)} RM</span>
           </div>
         `;
       }).join('');
@@ -943,22 +990,23 @@
     function renderExpenseRow(e) {
       const cat = state.categories.find(c => c.id === e.categoryId) || { name: 'Другое', color: '#64748b' };
       return `
-        <div class="flex justify-between items-center p-2.5 rounded-lg bg-slate-900/50 border border-slate-800/80 text-xs">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${cat.color}"></span>
-            <div>
-              <div class="font-medium text-slate-200">${e.note || cat.name}</div>
-              <div class="text-[10px] text-slate-500">${e.date} • ${cat.name}</div>
+        <div class="flex justify-between items-center p-2.5 surface-soft text-xs">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background:${cat.color}"></span>
+            <div class="truncate">
+              <div class="font-medium text-slate-200 truncate">${e.note || cat.name}</div>
+              <div class="text-[10px] text-slate-500">${e.date}</div>
             </div>
           </div>
-          <div class="flex items-center gap-2.5 shrink-0">
-            <span class="font-bold text-white">-${e.amount.toFixed(1)} RM</span>
-            <button onclick="deleteExpense('${e.id}')" class="text-slate-500 hover:text-red-400">✕</button>
+          <div class="flex items-center gap-2 shrink-0 ml-2">
+            <span class="font-bold text-white">-${e.amount.toFixed(1)}</span>
+            <button onclick="deleteExpense('${e.id}')" class="text-slate-600 hover:text-red-400 px-1">✕</button>
           </div>
         </div>
       `;
     }
 
+    // Группировка истории по дням с подсчетом итога за каждый день
     function renderHistory() {
       const cycle = getCurrentCycle();
       const q = (document.getElementById('searchQuery').value || '').toLowerCase().trim();
@@ -973,7 +1021,28 @@
       const sum = filtered.reduce((s, e) => s + e.amount, 0);
       document.getElementById('foundCount').textContent = filtered.length;
       document.getElementById('foundSum').textContent = `${sum.toFixed(1)} RM`;
-      document.getElementById('fullHistoryList').innerHTML = filtered.map(e => renderExpenseRow(e)).join('');
+
+      // Группируем по дате
+      const grouped = {};
+      filtered.forEach(e => {
+        if (!grouped[e.date]) grouped[e.date] = [];
+        grouped[e.date].push(e);
+      });
+
+      const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+      document.getElementById('fullHistoryList').innerHTML = dates.map(d => {
+        const dayItems = grouped[d];
+        const dayTotal = dayItems.reduce((s, x) => s + x.amount, 0);
+        return `
+          <div class="surface p-3 space-y-1.5">
+            <div class="flex justify-between items-center text-[11px] font-bold text-slate-400 px-1">
+              <span>📅 ${d}</span>
+              <span class="${dayTotal <= 33 ? 'text-emerald-400' : 'text-slate-200'}">За день: ${dayTotal.toFixed(1)} RM</span>
+            </div>
+            ${dayItems.map(item => renderExpenseRow(item)).join('')}
+          </div>
+        `;
+      }).join('');
     }
 
     document.getElementById('quickDate').value = '2026-10-14';

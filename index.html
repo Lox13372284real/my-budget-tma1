@@ -32,18 +32,18 @@
       border-radius: 12px;
       transition: all 0.12s ease;
     }
-    .quick-btn:active { transform: scale(0.97); background-color: #2563eb; border-color: #3b82f6; }
+    .quick-btn:active { transform: scale(0.96); background-color: #2563eb; border-color: #3b82f6; }
     .nav-item { color: #64748b; transition: color 0.15s; }
     .nav-item.active { color: #3b82f6; font-weight: 600; }
     #toast {
-      transition: opacity 0.25s, transform 0.25s;
+      transition: opacity 0.2s, transform 0.2s;
       pointer-events: none;
     }
   </style>
 </head>
 <body class="max-w-md mx-auto px-3.5 pt-3">
 
-  <!-- Незаметный всплывающий индикатор сохранения (исчезает через 1.2 сек) -->
+  <!-- Всплывающее уведомление (исчезает через 1 сек) -->
   <div id="toast" class="fixed top-3 left-1/2 -translate-x-1/2 z-50 opacity-0 -translate-y-2 bg-emerald-500 text-slate-950 font-bold text-xs px-3.5 py-1.5 rounded-full shadow-lg">
     ✓ Сохранено
   </div>
@@ -69,21 +69,42 @@
   <!-- ==================== ГЛАВНЫЙ КОНТЕЙНЕР ==================== -->
   <div id="mainAppContainer" class="hidden">
 
-    <!-- Минималистичная шапка -->
-    <header class="flex justify-between items-center mb-3.5">
+    <!-- Шапка -->
+    <header class="flex justify-between items-center mb-3">
       <div class="flex items-center gap-2">
         <span class="text-base font-extrabold tracking-tight text-white">⚡ Бюджет</span>
         <span id="activeCycleBadge" onclick="switchTab('history')" class="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 cursor-pointer">
-          21 Сен – 20 Окт ▾
+          Сен–Окт ▾
         </span>
       </div>
-      <div class="flex items-center gap-1.5">
-        <input type="date" id="quickDate" onchange="renderAll()" class="px-2 py-1 text-xs font-medium text-slate-300">
-        <button onclick="openSettingsModal()" class="w-8 h-8 rounded-xl surface flex items-center justify-center text-slate-300 hover:text-white">
-          ⚙️
-        </button>
-      </div>
+      <button onclick="openSettingsModal()" class="w-8 h-8 rounded-xl surface flex items-center justify-center text-slate-300 hover:text-white">
+        ⚙️
+      </button>
     </header>
+
+    <!-- УДОБНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ДНЯ (АВТО-СЕГОДНЯ + СТРЕЛКИ) -->
+    <div class="surface p-2 mb-3.5 flex items-center justify-between gap-2">
+      <button onclick="shiftDate(-1)" class="w-9 h-9 rounded-xl bg-[#090d16] border border-slate-800 flex items-center justify-center text-slate-300 active:bg-slate-800 text-sm font-bold">
+        ◀
+      </button>
+
+      <div class="flex-1 text-center relative">
+        <div onclick="document.getElementById('quickDate').showPicker ? document.getElementById('quickDate').showPicker() : document.getElementById('quickDate').focus()" class="cursor-pointer py-0.5">
+          <div id="prettyDateTitle" class="text-xs font-extrabold text-white">Сегодня, 15 окт</div>
+          <div class="text-[10px] text-slate-400 flex items-center justify-center gap-1">
+            <span>Нажми для календаря</span>
+            <button id="btnGoToday" onclick="event.stopPropagation(); setTodayDate();" class="hidden text-blue-400 font-bold underline ml-1">
+              • Вернуть Сегодня
+            </button>
+          </div>
+        </div>
+        <input type="date" id="quickDate" onchange="onDateInputChange()" class="sr-only">
+      </div>
+
+      <button onclick="shiftDate(1)" class="w-9 h-9 rounded-xl bg-[#090d16] border border-slate-800 flex items-center justify-center text-slate-300 active:bg-slate-800 text-sm font-bold">
+        ▶
+      </button>
+    </div>
 
     <!-- ==================== ВКЛАДКА 1: СЕГОДНЯ ==================== -->
     <div id="tab-home" class="space-y-3.5">
@@ -96,17 +117,15 @@
             <div id="uiBalance" class="text-3xl font-black mt-0.5 tracking-tight text-emerald-400">0.0 RM</div>
             <div id="uiSpentTotal" class="text-xs text-slate-400 mt-0.5">Потрачено: 0 из 950 RM</div>
           </div>
-          <!-- Переключатель лимита 950 / 1800 в 1 тап -->
           <div class="flex bg-[#090d16] p-1 rounded-xl border border-slate-800 text-[11px] font-semibold">
             <button id="btnLim950" onclick="setLimitMode(950)" class="px-2.5 py-1 rounded-lg transition">950</button>
             <button id="btnLim1800" onclick="setLimitMode(1800)" class="px-2.5 py-1 rounded-lg transition">1800</button>
           </div>
         </div>
 
-        <!-- 3 компактные метрики внутри карточки -->
         <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800/80 text-center">
           <div>
-            <div class="text-[10px] text-slate-400 uppercase">За день</div>
+            <div id="lblSelectedDay" class="text-[10px] text-slate-400 uppercase">За сегодня</div>
             <div id="uiDaySpent" class="text-sm font-bold text-white mt-0.5">0 RM</div>
             <div id="uiDayVerdict" class="text-[10px] text-emerald-400">Норма ≤32</div>
           </div>
@@ -118,19 +137,18 @@
           <div>
             <div class="text-[10px] text-slate-400 uppercase">Лимит/д</div>
             <div id="uiSafeDaily" class="text-sm font-bold text-blue-400 mt-0.5">0 RM</div>
-            <div class="text-[10px] text-slate-500">До 21 числа</div>
+            <div class="text-[10px] text-slate-500">По остатку</div>
           </div>
         </div>
       </div>
 
-      <!-- Быстрые кнопки: чистая сетка с подкатегориями -->
+      <!-- Быстрые кнопки -->
       <div class="surface p-3.5 space-y-2.5">
         <div class="flex justify-between items-center">
           <span class="text-xs font-bold text-slate-300">Быстрое добавление</span>
-          <span class="text-[11px] text-slate-500">Нажми для записи</span>
+          <span id="quickTargetDateHint" class="text-[11px] text-blue-400 font-medium">Запись на: Сегодня</span>
         </div>
 
-        <!-- Еда -->
         <div class="grid grid-cols-2 gap-1.5">
           <button onclick="quickAdd('food', 4.2, 'Аэрогриль грудка + рис')" class="quick-btn p-2.5 text-left flex justify-between items-center">
             <span class="text-xs font-medium text-slate-200">🍗 Своя грудка</span>
@@ -158,7 +176,6 @@
           </button>
         </div>
 
-        <!-- Метро и перекусы -->
         <div class="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-800/60">
           <button onclick="quickAdd('transport', 6.9, 'Метро туда-обратно')" class="quick-btn p-2 text-center">
             <div class="text-[11px] text-slate-300">🚇 Метро</div>
@@ -186,7 +203,6 @@
           </button>
         </div>
 
-        <!-- Закупки и счета -->
         <div class="grid grid-cols-3 gap-1.5 pt-1 border-t border-slate-800/60">
           <button onclick="quickAdd('nsk', 25.5, 'Заказ 2 кг грудки')" class="quick-btn p-2 text-center">
             <div class="text-[11px] text-slate-300">📦 2кг грудки</div>
@@ -203,12 +219,12 @@
         </div>
       </div>
 
-      <!-- Ручной ввод в 2 компактных ряда -->
+      <!-- Своя запись -->
       <div class="surface p-3.5 space-y-2">
         <div class="text-xs font-bold text-slate-300">Своя запись</div>
         <div class="flex gap-2">
           <input type="number" id="manualAmount" step="0.1" placeholder="Сумма" class="w-24 px-3 py-2 text-xs font-bold">
-          <input type="text" id="manualNote" placeholder="Описание (напр. такси, соус)" class="flex-1 px-3 py-2 text-xs">
+          <input type="text" id="manualNote" placeholder="Описание (такси, соус и т.д.)" class="flex-1 px-3 py-2 text-xs">
         </div>
         <div class="flex gap-2">
           <select id="manualCat" class="flex-1 px-2.5 py-2 text-xs text-slate-300"></select>
@@ -218,20 +234,18 @@
         </div>
       </div>
 
-      <!-- Траты за выбранный день / последние 5 -->
+      <!-- Записи за выбранный день + последние -->
       <div class="surface p-3.5">
         <div class="flex justify-between items-center mb-2">
-          <span class="text-xs font-bold text-slate-300">Последние записи</span>
-          <button onclick="switchTab('history')" class="text-[11px] text-blue-400 font-medium">Все записи ➔</button>
+          <span id="recentBlockTitle" class="text-xs font-bold text-slate-300">Траты за выбранный день</span>
+          <button onclick="switchTab('history')" class="text-[11px] text-blue-400 font-medium">Вся история ➔</button>
         </div>
         <div id="recentList" class="space-y-1.5"></div>
       </div>
     </div>
 
-    <!-- ==================== ВКЛАДКА 2: ВСЯ ИСТОРИЯ В ОДНОМ МЕСТЕ ==================== -->
+    <!-- ==================== ВКЛАДКА 2: ИСТОРИЯ ==================== -->
     <div id="tab-history" class="space-y-3.5 hidden">
-
-      <!-- Выбор периода (все 8 циклов) + создание нового -->
       <div class="surface p-3.5 space-y-2.5">
         <div class="flex justify-between items-center">
           <span class="text-xs font-bold text-slate-300">Выбор месяца (цикла)</span>
@@ -240,12 +254,9 @@
           </button>
         </div>
         <select id="cycleSelect" onchange="changeCycle(this.value)" class="w-full px-3 py-2.5 text-xs font-bold text-white"></select>
-
-        <!-- Горизонтальная сводка всех циклов для быстрого клика -->
         <div id="cyclesPills" class="flex gap-1.5 overflow-x-auto pb-1 pt-0.5"></div>
       </div>
 
-      <!-- Поиск и фильтр в одном блоке -->
       <div class="surface p-3.5 space-y-2.5">
         <div class="flex gap-2">
           <input type="text" id="searchQuery" oninput="renderHistory()" placeholder="🔍 Поиск (кфс, онигири, такси, нск)..." class="flex-1 px-3 py-2 text-xs">
@@ -255,17 +266,15 @@
         </div>
         <div class="flex justify-between items-center px-1 text-xs text-slate-400">
           <span>Записей: <b id="foundCount" class="text-white">0</b></span>
-          <span>Итого по списку: <b id="foundSum" class="text-emerald-400">0 RM</b></span>
+          <span>Сумма: <b id="foundSum" class="text-emerald-400">0 RM</b></span>
         </div>
       </div>
 
-      <!-- Список истории, сгруппированный по дням -->
       <div id="fullHistoryList" class="space-y-2.5"></div>
 
-      <!-- Складной блок с оригинальными текстовыми заметками (в этом же месте!) -->
       <details class="surface p-3.5">
         <summary class="text-xs font-bold text-slate-300 cursor-pointer select-none">
-          📓 Открыть оригинальный блокнот заметок (Дек – Окт)
+          📓 Оригинальный блокнот заметок (Дек – Окт)
         </summary>
         <div class="mt-3 space-y-2">
           <textarea id="rawNotesArea" rows="14" class="w-full p-2.5 text-[11px] font-mono leading-relaxed"></textarea>
@@ -276,7 +285,7 @@
       </details>
     </div>
 
-    <!-- ==================== ВКЛАДКА 3: ТЕМЫ И ЛИМИТЫ ==================== -->
+    <!-- ==================== ВКЛАДКА 3: ТЕМЫ ==================== -->
     <div id="tab-cats" class="space-y-3.5 hidden">
       <div class="surface p-3.5">
         <div class="flex justify-between items-center mb-3">
@@ -299,7 +308,7 @@
       </div>
     </div>
 
-    <!-- Нижняя панель из 3 понятных вкладок -->
+    <!-- Нижнее меню -->
     <nav class="fixed bottom-0 left-0 right-0 bg-[#090d16]/95 backdrop-blur border-t border-slate-800/80 z-40">
       <div class="max-w-md mx-auto grid grid-cols-3 py-2 text-center text-[11px]">
         <button onclick="switchTab('home')" id="nav-home" class="nav-item active flex flex-col items-center gap-0.5 py-1">
@@ -318,7 +327,7 @@
     </nav>
   </div>
 
-  <!-- ==================== ЕДИНОЕ ОКНО НАСТРОЕК, БЭКАПА И АДМИНКИ ==================== -->
+  <!-- ==================== НАСТРОЙКИ И БЭКАП ==================== -->
   <div id="settingsModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
     <div class="surface p-5 max-w-sm w-full space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center">
@@ -326,7 +335,6 @@
         <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
       </div>
 
-      <!-- Свой лимит -->
       <div class="space-y-1.5">
         <label class="text-xs text-slate-400 block">Лимит текущего месяца (RM):</label>
         <div class="flex gap-2">
@@ -335,9 +343,8 @@
         </div>
       </div>
 
-      <!-- Бэкап -->
       <div class="space-y-2 pt-2 border-t border-slate-800">
-        <div class="text-xs font-semibold text-slate-300">☁️ Бэкап и перенос данных</div>
+        <div class="text-xs font-semibold text-slate-300">☁️ Бэкап и перенос</div>
         <div class="grid grid-cols-2 gap-2">
           <button onclick="copySaveCode()" class="p-2 rounded-xl bg-emerald-600 text-white text-xs font-semibold">📋 Код в буфер</button>
           <button onclick="pasteSaveCode()" class="p-2 rounded-xl bg-slate-800 text-slate-200 text-xs font-semibold">📥 Вставить код</button>
@@ -349,9 +356,8 @@
         </div>
       </div>
 
-      <!-- Админка (Инвайты) -->
       <div class="space-y-2 pt-2 border-t border-slate-800">
-        <div class="text-xs font-semibold text-amber-400">👑 Доступ (без ID основы)</div>
+        <div class="text-xs font-semibold text-amber-400">👑 Доступ (Инвайты)</div>
         <div class="flex gap-2">
           <input type="text" id="generatedInviteBox" readonly placeholder="Инвайт-ключ..." class="flex-1 px-2.5 py-1.5 text-xs font-mono text-emerald-400">
           <button onclick="generateInviteTicket()" class="px-3 py-1.5 rounded-xl bg-amber-600 text-white text-xs font-semibold">Создать</button>
@@ -362,10 +368,9 @@
         </div>
       </div>
 
-      <!-- Сброс и Выход -->
       <div class="pt-2 border-t border-slate-800 space-y-2">
         <button onclick="resetToFactoryNotes()" class="w-full py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
-          ↻ Восстановить все 8 циклов (Дек – Окт)
+          ↻ Восстановить исходные 8 циклов
         </button>
         <button onclick="lockSessionNow()" class="w-full py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold">
           🔒 Заблокировать экран
@@ -378,6 +383,54 @@
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
     if (tg) { tg.ready(); tg.expand(); }
 
+    // ==================== УМНАЯ РАБОТА С ТЕКУЩЕЙ ДАТОЙ ====================
+    function getLocalTodayStr() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    let selectedDateStr = getLocalTodayStr();
+
+    function formatPrettyDate(dateStr) {
+      const today = getLocalTodayStr();
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d);
+      const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+      const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+      const base = `${d} ${months[m - 1]} (${days[dateObj.getDay()]})`;
+      if (dateStr === today) return `Сегодня, ${base}`;
+      return base;
+    }
+
+    function setTodayDate() {
+      selectedDateStr = getLocalTodayStr();
+      document.getElementById('quickDate').value = selectedDateStr;
+      renderAll();
+    }
+
+    function shiftDate(deltaDays) {
+      const [y, m, d] = selectedDateStr.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      dt.setDate(dt.getDate() + deltaDays);
+      const yyyy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getDate()).padStart(2, '0');
+      selectedDateStr = `${yyyy}-${mm}-${dd}`;
+      document.getElementById('quickDate').value = selectedDateStr;
+      renderAll();
+    }
+
+    function onDateInputChange() {
+      const val = document.getElementById('quickDate').value;
+      if (val) {
+        selectedDateStr = val;
+        renderAll();
+      }
+    }
+
     function showToast(msg = '✓ Сохранено') {
       const t = document.getElementById('toast');
       t.textContent = msg;
@@ -387,12 +440,12 @@
       window._toastTimer = setTimeout(() => {
         t.classList.remove('opacity-100', 'translate-y-0');
         t.classList.add('opacity-0', '-translate-y-2');
-      }, 1200);
+      }, 1100);
     }
 
     // ==================== АВТОРИЗАЦИЯ ====================
     const AUTH_STORAGE_KEY = 'appBudgetAuthToken_v2';
-    const MASTER_HASH = '713bfda78870bf9d1b261f565286f85e97ee614efe5f0faf7c34e7ca4f65baca'; // admin1337
+    const MASTER_HASH = '713bfda78870bf9d1b261f565286f85e97ee614efe5f0faf7c34e7ca4f65baca';
 
     async function sha256(str) {
       const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
@@ -459,7 +512,7 @@
       document.getElementById('authLockScreen').classList.remove('hidden');
     }
 
-    // ==================== ПОЛНАЯ ИСТОРИЯ ВСЕХ 8 ЦИКЛОВ ====================
+    // ==================== БАЗА ДАННЫХ ====================
     const ORIGINAL_RAW_NOTES = `=== ЦИКЛ 1: 18 дек – 13 янв ===
 18 дек: 58 еда (магазин + заказ рис кур), 18 такси, 23 мелочи
 19 дек: 39 еда (мак + симка)
@@ -503,38 +556,24 @@
 16 фев: 33 десерты, 55 бургер (ост -170)
 
 === ЦИКЛ 3: 18 фев – 16 мар ===
-19 фев: 91 Бургер Кинг
-20 фев: 66.5 десерты, онигири, хлеб, попкорн
-21-23 фев: 18 + 20 + 43.3 (десерты, хлеб, онигири)
-25 фев: 258 NSK
-26 фев: 30 соус, такси, напиток
-27 фев: 39 KFC
-1 мар: 45.3 десерты, хлеб, онигири
-2 мар: 78 такси пещеры, вода, онигири, метро
-6 мар: 98 напитки, десерты, KFC
-9 мар: 12 такси, 25 связь
-10 мар: 21 уник, 7.5 мороженое, 20 свет
-12-13 мар: 48 + 19 уник, онигири, такси
-14 мар: 59.5 прачка, фри, контейнеры, попкорн
-15-16 мар: 65 Макдак, 10 уник (ост -35)
+19 фев: 91 Бургер Кинг, 20-23 фев: десерты, онигири, хлеб
+25 фев: 258 NSK, 27 фев: 39 KFC, 2 мар: 78 такси пещеры и еда
+6 мар: 98 напитки, десерты, KFC, 9-16 мар: уник, прачка, Макдак (ост -35)
 
 === ЦИКЛ 4: 17 мар – 15 апр ===
-17 мар: 21.5 уник и онигири, 100 специи заказ
-18-24 мар: уник, такси, рис 31, ремень 23, перекусы (по 32 RM/день чистыми)
-27-28 мар: соусы 102, уник 19, NSK курица 149
-3-10 апр: NSK 105, Бульдак 24, связь 30, свет 20, NSK 117
-12-15 апр: калькулятор 60, ноут 20, такси 17 (Итого 1067 RM)
+Специи 100, соусы 102, NSK (129+105+117), калькулятор 60, еда уник (Итого 1067 RM)
 
 === ЦИКЛ 5: 16 апр – 15 мая ===
-NSK закупки (105 + 113 + 130 + 130 + 157), креатин и витамины 125, стрижка 60, свет 70, связь 30, перекусы.
+NSK закупки (105+113+130+130+157), креатин и витамины 125, стрижка 60, свет 70, связь 30.
 
 === ЦИКЛ 6: 17 мая – 16 июн ===
-NSK закупки (150 + 115 + 124 + 111 + 120), Мак 55, свет 55, связь 55, стирка 18, перекусы.
+NSK закупки (150+115+124+111+120), Мак 55, свет 55, связь 55, стирка 18.
 
 === ЦИКЛ 7: 17 июн – 7 июл ===
-NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, десерты Shopee 46, мороженое и мелочи (остаток 470 RM).`;
+NSK (150+70), экзамен такси + Мак (85), Бульдак 22, десерты Shopee 46 (остаток 470 RM).`;
 
     const FACTORY_DATA = {
+      updatedAt: 1700000000000,
       activeCycleId: 'c_sep_oct',
       monthlyLimit: 950,
       rawNotes: ORIGINAL_RAW_NOTES,
@@ -674,23 +713,23 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
       ]
     };
 
-    const STORAGE_KEY = 'appBudgetClean_v2';
-    const CLOUD_ACTIVE_KEY = 'appCloudActive_v2';
+    const STORAGE_KEY = 'appBudgetClean_v3';
+    const CLOUD_CHUNKS = ['appCloud_c0', 'appCloud_c1', 'appCloud_c2', 'appCloud_c3'];
 
-    // Загружаем локальный стейт и гарантируем, что все 8 циклов на месте (никакой потери истории!)
     function loadInitialState() {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      // Миграция со старого ключа v2, если там уже были записи
+      const rawV3 = localStorage.getItem(STORAGE_KEY);
+      const rawV2 = localStorage.getItem('appBudgetClean_v2');
+      const raw = rawV3 || rawV2;
       if (!raw) return JSON.parse(JSON.stringify(FACTORY_DATA));
       try {
         const parsed = JSON.parse(raw);
-        if (!parsed.cycles || parsed.cycles.length < FACTORY_DATA.cycles.length) {
-          // Восстанавливаем недостающие архивные циклы без потери текущего
-          FACTORY_DATA.cycles.forEach(fc => {
-            if (!parsed.cycles.some(c => c.id === fc.id)) {
-              parsed.cycles.push(JSON.parse(JSON.stringify(fc)));
-            }
-          });
-        }
+        if (!parsed.cycles) return JSON.parse(JSON.stringify(FACTORY_DATA));
+        FACTORY_DATA.cycles.forEach(fc => {
+          if (!parsed.cycles.some(c => c.id === fc.id)) {
+            parsed.cycles.push(JSON.parse(JSON.stringify(fc)));
+          }
+        });
         return parsed;
       } catch (e) {
         return JSON.parse(JSON.stringify(FACTORY_DATA));
@@ -699,45 +738,78 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
 
     let state = loadInitialState();
 
-    // Безопасная синхронизация с облаком Telegram (обновляет только активный цикл, НЕ стирая остальные 7 циклов!)
-    function loadFromTelegramCloud() {
-      if (tg && tg.CloudStorage) {
-        tg.CloudStorage.getItem(CLOUD_ACTIVE_KEY, (err, val) => {
-          if (!err && val) {
-            try {
-              const cloudData = JSON.parse(val);
-              if (cloudData && cloudData.cycle && cloudData.cycle.id) {
-                const idx = state.cycles.findIndex(c => c.id === cloudData.cycle.id);
-                if (idx !== -1) {
-                  state.cycles[idx] = cloudData.cycle;
-                } else {
-                  state.cycles.unshift(cloudData.cycle);
-                }
-                state.activeCycleId = cloudData.activeCycleId || state.activeCycleId;
-                state.monthlyLimit = cloudData.monthlyLimit || state.monthlyLimit;
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-                renderAll();
-              }
-            } catch (e) {}
+    // ==================== НАДЕЖНОЕ ОБЛАЧНОЕ СОХРАНЕНИЕ БЕЗ ЛИМИТА 4096 БАЙТ ====================
+    function saveToTelegramCloud() {
+      if (!tg || !tg.CloudStorage) return;
+      try {
+        const activeCycle = getCurrentCycle();
+        // Компактная упаковка записей, чтобы вместить в 4 раза больше данных
+        const compactPayload = JSON.stringify({
+          u: state.updatedAt || Date.now(),
+          a: state.activeCycleId,
+          l: state.monthlyLimit,
+          c: {
+            id: activeCycle.id,
+            name: activeCycle.name,
+            shortName: activeCycle.shortName,
+            limit: activeCycle.limit,
+            e: (activeCycle.expenses || []).map(x => [x.id, x.date, x.categoryId, x.amount, x.note || ''])
           }
         });
-      }
+
+        // Разбиваем строку на куски по 3800 символов (обходит лимит 4096 байт в Telegram!)
+        const chunkSize = 3800;
+        for (let i = 0; i < CLOUD_CHUNKS.length; i++) {
+          const part = compactPayload.slice(i * chunkSize, (i + 1) * chunkSize);
+          tg.CloudStorage.setItem(CLOUD_CHUNKS[i], part || '', () => {});
+        }
+      } catch (e) {}
+    }
+
+    function loadFromTelegramCloud() {
+      if (!tg || !tg.CloudStorage) return;
+      tg.CloudStorage.getItems(CLOUD_CHUNKS, (err, values) => {
+        if (err || !values) return;
+        const joined = CLOUD_CHUNKS.map(k => values[k] || '').join('');
+        if (!joined) return;
+        try {
+          const data = JSON.parse(joined);
+          if (!data || !data.c) return;
+          // Загружаем из облака ТОЛЬКО если облачная версия новее локальной!
+          const localTime = state.updatedAt || 0;
+          if (data.u && data.u > localTime) {
+            const restoredCycle = {
+              id: data.c.id,
+              name: data.c.name,
+              shortName: data.c.shortName,
+              limit: data.c.limit,
+              expenses: (data.c.e || []).map(arr => ({
+                id: arr[0],
+                date: arr[1],
+                categoryId: arr[2],
+                amount: arr[3],
+                note: arr[4]
+              }))
+            };
+            const idx = state.cycles.findIndex(x => x.id === restoredCycle.id);
+            if (idx !== -1) state.cycles[idx] = restoredCycle;
+            else state.cycles.unshift(restoredCycle);
+
+            state.activeCycleId = data.a || state.activeCycleId;
+            state.monthlyLimit = data.l || state.monthlyLimit;
+            state.updatedAt = data.u;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            renderAll();
+          }
+        } catch (e) {}
+      });
     }
 
     function saveState(silent = false) {
+      state.updatedAt = Date.now();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      saveToTelegramCloud();
       if (!silent) showToast('✓ Сохранено');
-
-      if (tg && tg.CloudStorage) {
-        const payload = JSON.stringify({
-          activeCycleId: state.activeCycleId,
-          monthlyLimit: state.monthlyLimit,
-          cycle: getCurrentCycle()
-        });
-        if (payload.length < 4000) {
-          tg.CloudStorage.setItem(CLOUD_ACTIVE_KEY, payload, () => {});
-        }
-      }
       renderAll();
     }
 
@@ -773,10 +845,9 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
     }
 
     function quickAdd(categoryId, amount, note) {
-      const date = document.getElementById('quickDate').value || new Date().toISOString().split('T')[0];
       getCurrentCycle().expenses.unshift({
-        id: 'e_' + Date.now(),
-        date,
+        id: 'e_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
+        date: selectedDateStr,
         categoryId,
         amount,
         note
@@ -789,9 +860,14 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
       const categoryId = document.getElementById('manualCat').value;
       const amount = parseFloat(document.getElementById('manualAmount').value);
       const note = document.getElementById('manualNote').value.trim();
-      const date = document.getElementById('quickDate').value || new Date().toISOString().split('T')[0];
       if (!categoryId || isNaN(amount) || amount <= 0) return alert('Укажи сумму');
-      getCurrentCycle().expenses.unshift({ id: 'e_' + Date.now(), date, categoryId, amount, note });
+      getCurrentCycle().expenses.unshift({
+        id: 'e_' + Date.now(),
+        date: selectedDateStr,
+        categoryId,
+        amount,
+        note
+      });
       document.getElementById('manualAmount').value = '';
       document.getElementById('manualNote').value = '';
       saveState();
@@ -858,7 +934,7 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
       const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `budget_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `budget_${getLocalTodayStr()}.json`;
       a.click();
     }
 
@@ -876,7 +952,7 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
     }
 
     function resetToFactoryNotes() {
-      if (confirm('Восстановить полную базу всех 8 циклов (Декабрь – 14 Октября)?')) {
+      if (confirm('Сбросить к исходным 8 циклам (Декабрь – 14 Октября)?')) {
         state = JSON.parse(JSON.stringify(FACTORY_DATA));
         saveState();
         closeSettingsModal();
@@ -886,27 +962,33 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
     function renderAll() {
       const cycle = getCurrentCycle();
       const exps = cycle.expenses || [];
+      const todayStr = getLocalTodayStr();
+
+      // Отображение выбранной даты
+      document.getElementById('quickDate').value = selectedDateStr;
+      const pretty = formatPrettyDate(selectedDateStr);
+      document.getElementById('prettyDateTitle').textContent = pretty;
+      document.getElementById('btnGoToday').classList.toggle('hidden', selectedDateStr === todayStr);
+      document.getElementById('quickTargetDateHint').textContent = selectedDateStr === todayStr ? 'На сегодня' : `На: ${pretty}`;
+      document.getElementById('lblSelectedDay').textContent = selectedDateStr === todayStr ? 'За сегодня' : 'За выбр. день';
 
       // Бейдж в шапке
       document.getElementById('activeCycleBadge').textContent = (cycle.shortName || cycle.name) + ' ▾';
 
       // Переключатель 950 / 1800
-      const b950 = document.getElementById('btnLim950');
-      const b1800 = document.getElementById('btnLim1800');
-      b950.className = `px-2.5 py-1 rounded-lg transition ${state.monthlyLimit === 950 ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
-      b1800.className = `px-2.5 py-1 rounded-lg transition ${state.monthlyLimit === 1800 ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
+      document.getElementById('btnLim950').className = `px-2.5 py-1 rounded-lg transition ${state.monthlyLimit === 950 ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
+      document.getElementById('btnLim1800').className = `px-2.5 py-1 rounded-lg transition ${state.monthlyLimit === 1800 ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
 
-      // Селектор циклов в Истории
+      // Селектор циклов
       const cSel = document.getElementById('cycleSelect');
       cSel.innerHTML = state.cycles.map(c => `<option value="${c.id}" ${c.id === cycle.id ? 'selected' : ''}>${c.name}</option>`).join('');
 
-      // Быстрые таблетки всех циклов
       document.getElementById('cyclesPills').innerHTML = state.cycles.map(c => {
         const active = c.id === cycle.id;
         return `<button onclick="changeCycle('${c.id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold shrink-0 border ${active ? 'bg-blue-600 border-blue-500 text-white' : 'bg-[#090d16] border-slate-800 text-slate-400'}">${c.shortName || c.name}</button>`;
       }).join('');
 
-      // Расчеты
+      // Подсчеты
       const totalSpent = exps.reduce((s, e) => s + e.amount, 0);
       const balance = state.monthlyLimit - totalSpent;
       const uniqueDays = new Set(exps.map(e => e.date)).size || 1;
@@ -923,8 +1005,8 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
       document.getElementById('uiSafeDaily').textContent = `${safeDaily.toFixed(1)} RM`;
       document.getElementById('uiAvgClean').textContent = `${cleanAvg.toFixed(1)} RM`;
 
-      const selDate = document.getElementById('quickDate').value;
-      const daySpent = exps.filter(e => e.date === selDate).reduce((s, e) => s + e.amount, 0);
+      const dayExpenses = exps.filter(e => e.date === selectedDateStr);
+      const daySpent = dayExpenses.reduce((s, e) => s + e.amount, 0);
       document.getElementById('uiDaySpent').textContent = `${daySpent.toFixed(1)} RM`;
 
       const vEl = document.getElementById('uiDayVerdict');
@@ -950,8 +1032,15 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
       fCat.innerHTML = `<option value="all">Все темы</option>` + state.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
       fCat.value = prevFilter;
 
-      // Последние 5 записей
-      document.getElementById('recentList').innerHTML = exps.slice(0, 5).map(e => renderExpenseRow(e)).join('');
+      // Список записей за выбранный день (или последние 5, если за сегодня еще 0 записей)
+      const recentTitle = document.getElementById('recentBlockTitle');
+      if (dayExpenses.length > 0) {
+        recentTitle.textContent = `Записи за ${pretty} (${dayExpenses.length})`;
+        document.getElementById('recentList').innerHTML = dayExpenses.map(e => renderExpenseRow(e)).join('');
+      } else {
+        recentTitle.textContent = `За ${pretty} пока 0 трат • Последние записи:`;
+        document.getElementById('recentList').innerHTML = exps.slice(0, 5).map(e => renderExpenseRow(e)).join('');
+      }
 
       renderHistory();
 
@@ -1006,7 +1095,6 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
       `;
     }
 
-    // Группировка истории по дням с подсчетом итога за каждый день
     function renderHistory() {
       const cycle = getCurrentCycle();
       const q = (document.getElementById('searchQuery').value || '').toLowerCase().trim();
@@ -1022,7 +1110,6 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
       document.getElementById('foundCount').textContent = filtered.length;
       document.getElementById('foundSum').textContent = `${sum.toFixed(1)} RM`;
 
-      // Группируем по дате
       const grouped = {};
       filtered.forEach(e => {
         if (!grouped[e.date]) grouped[e.date] = [];
@@ -1036,7 +1123,7 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
         return `
           <div class="surface p-3 space-y-1.5">
             <div class="flex justify-between items-center text-[11px] font-bold text-slate-400 px-1">
-              <span>📅 ${d}</span>
+              <span>📅 ${formatPrettyDate(d)}</span>
               <span class="${dayTotal <= 33 ? 'text-emerald-400' : 'text-slate-200'}">За день: ${dayTotal.toFixed(1)} RM</span>
             </div>
             ${dayItems.map(item => renderExpenseRow(item)).join('')}
@@ -1045,7 +1132,8 @@ NSK (150 + 70), экзамен такси + Мак (85), Бульдак 22, де
       }).join('');
     }
 
-    document.getElementById('quickDate').value = '2026-10-14';
+    // Старт с автоматическим сегодняшним днем
+    setTodayDate();
     checkSavedAuth();
     loadFromTelegramCloud();
   </script>

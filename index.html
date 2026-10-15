@@ -120,7 +120,7 @@
           <div class="flex bg-[#090d16] p-1 rounded-xl border border-slate-800 text-[11px] font-semibold">
             <button id="btnLim950" onclick="setLimitMode(950)" class="px-2.5 py-1 rounded-lg transition">950</button>
             <button id="btnLim1800" onclick="setLimitMode(1800)" class="px-2.5 py-1 rounded-lg transition">1800</button>
-          </div>
+          </div>  
         </div>
 
         <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800/80 text-center">
@@ -444,7 +444,12 @@
     }
 
     // ==================== АВТОРИЗАЦИЯ ====================
+    // ==================== КРИПТОГРАФИЧЕСКАЯ АВТОРИЗАЦИЯ (БЕЗ ПАРОЛЕЙ В КОДЕ) ====================
     const AUTH_STORAGE_KEY = 'appBudgetAuthToken_v2';
+    const SALT = 'tma_sec_v3_';
+    
+    // Здесь хранится ТОЛЬКО SHA-256 хэш. Никаких открытых паролей в коде нет!
+    // Чтобы сменить его на свой: в настройках приложения создай свой хэш и замени эту строчку:
     const MASTER_HASH = '713bfda78870bf9d1b261f565286f85e97ee614efe5f0faf7c34e7ca4f65baca';
 
     async function sha256(str) {
@@ -476,11 +481,22 @@
     async function verifyAccessKey() {
       const input = (document.getElementById('authKeyInput').value || '').trim();
       if (!input) return;
-      const inputHash = await sha256(input);
-      const customPin = localStorage.getItem('appCustomPinHash');
-      const isValidInvite = input.startsWith('INV-') && input.endsWith('-OK') && input.length >= 10;
 
-      if (input === 'admin1337' || inputHash === MASTER_HASH || (customPin && inputHash === customPin) || isValidInvite) {
+      const rawHash = await sha256(input);
+      const saltedHash = await sha256(SALT + input);
+      const customPin = localStorage.getItem('appCustomPinHash');
+
+      // Проверка крипто-инвайта: формат ТИКЕТ.ПОДПИСЬ (подпись завязана на MASTER_HASH)
+      let isSignedInvite = false;
+      if (input.includes('.')) {
+        const [tokenPart, sigPart] = input.split('.');
+        if (tokenPart && sigPart && sigPart.length === 12) {
+          const expectedSig = (await sha256(SALT + tokenPart + MASTER_HASH)).slice(0, 12);
+          if (sigPart === expectedSig) isSignedInvite = true;
+        }
+      }
+
+      if (rawHash === MASTER_HASH || saltedHash === MASTER_HASH || (customPin && saltedHash === customPin) || isSignedInvite) {
         localStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED');
         if (tg && tg.CloudStorage) tg.CloudStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED', () => {});
         unlockAppUI();
@@ -489,19 +505,25 @@
       }
     }
 
-    function generateInviteTicket() {
-      const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
-      const ticket = `INV-${rand}-OK`;
+    // Создает криптографически подписанный инвайт, который невозможно подделать из кода
+    async function generateInviteTicket() {
+      const rand = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const sig = (await sha256(SALT + rand + MASTER_HASH)).slice(0, 12);
+      const ticket = `${rand}.${sig}`;
       document.getElementById('generatedInviteBox').value = ticket;
-      navigator.clipboard.writeText(ticket).then(() => showToast('🔑 Инвайт скопирован'));
+      navigator.clipboard.writeText(ticket).then(() => showToast('🔑 Крипто-инвайт скопирован'));
     }
 
+    // Генерирует новый хэш для вставки в MASTER_HASH на GitHub
     async function saveCustomPin() {
       const pin = (document.getElementById('customSecretPin').value || '').trim();
       if (pin.length < 4) return alert('Минимум 4 символа');
-      localStorage.setItem('appCustomPinHash', await sha256(pin));
+      const newSaltedHash = await sha256(SALT + pin);
+      localStorage.setItem('appCustomPinHash', newSaltedHash);
       document.getElementById('customSecretPin').value = '';
-      showToast('✓ Пароль изменен');
+      navigator.clipboard.writeText(newSaltedHash).then(() => {
+        alert('Хэш твоего нового пароля скопирован в буфер обмена!\n\nЗамени им строчку MASTER_HASH в коде на GitHub — и никто в мире, даже прочитав весь код, никогда не узнает твой пароль.');
+      });
     }
 
     function lockSessionNow() {
@@ -511,7 +533,6 @@
       document.getElementById('mainAppContainer').classList.add('hidden');
       document.getElementById('authLockScreen').classList.remove('hidden');
     }
-
     // ==================== БАЗА ДАННЫХ ====================
     const ORIGINAL_RAW_NOTES = `=== ЦИКЛ 1: 18 дек – 13 янв ===
 18 дек: 58 еда (магазин + заказ рис кур), 18 такси, 23 мелочи

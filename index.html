@@ -48,21 +48,35 @@
     ✓ Сохранено
   </div>
 
-  <!-- ==================== ЭКРАН БЛОКИРОВКИ ==================== -->
+  <!-- ==================== ЭКРАН БЛОКИРОВКИ (ДЛЯ ВСЕХ КРОМЕ АДМИНА) ==================== -->
   <div id="authLockScreen" class="fixed inset-0 bg-[#090d16] z-50 flex items-center justify-center p-5">
     <div class="surface p-6 w-full max-w-xs text-center space-y-4 shadow-2xl">
       <div class="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto text-xl">
         🔒
       </div>
       <div>
-        <h2 class="text-base font-bold text-white">Приватный доступ</h2>
-        <p class="text-xs text-slate-400 mt-1">Введите ключ доступа или инвайт</p>
+        <h2 class="text-base font-bold text-white">Доступ закрыт</h2>
+        <p class="text-xs text-slate-400 mt-1">Доступ к боту выдает только администратор по вашему Telegram ID.</p>
       </div>
-      <input type="password" id="authKeyInput" placeholder="Ключ доступа..." class="w-full px-3 py-2.5 text-sm font-semibold text-center">
-      <div id="authErrorMsg" class="text-xs text-red-400 hidden">Неверный ключ</div>
-      <button onclick="verifyAccessKey()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm">
-        Войти
-      </button>
+
+      <!-- Показываем пользователю его Telegram ID, чтобы он мог скопировать и выдать себе доступ с админки -->
+      <div class="surface-soft p-2.5 text-xs space-y-1">
+        <div class="text-[10px] text-slate-400 uppercase">Ваш Telegram ID:</div>
+        <div class="flex items-center justify-center gap-2">
+          <span id="currentUserIdDisplay" class="font-mono font-bold text-blue-400 text-sm">Не определен</span>
+          <button onclick="copyMyTgId()" class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white">
+            📋 Копировать
+          </button>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <input type="text" id="authKeyInput" placeholder="Вставьте выданный ключ доступа..." class="w-full px-3 py-2.5 text-xs font-mono font-semibold text-center">
+        <div id="authErrorMsg" class="text-xs text-red-400 hidden">⛔ Ключ не подходит к вашему ID</div>
+        <button onclick="verifyUserKey()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm">
+          Активировать доступ
+        </button>
+      </div>
     </div>
   </div>
 
@@ -76,13 +90,16 @@
         <span id="activeCycleBadge" onclick="switchTab('history')" class="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 cursor-pointer">
           Сен–Окт ▾
         </span>
+        <span id="adminCrownBadge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+          👑 ADMIN
+        </span>
       </div>
       <button onclick="openSettingsModal()" class="w-8 h-8 rounded-xl surface flex items-center justify-center text-slate-300 hover:text-white">
         ⚙️
       </button>
     </header>
 
-    <!-- УДОБНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ДНЯ (АВТО-СЕГОДНЯ + СТРЕЛКИ) -->
+    <!-- ПЕРЕКЛЮЧАТЕЛЬ ДНЯ (АВТО-СЕГОДНЯ + СТРЕЛКИ) -->
     <div class="surface p-2 mb-3.5 flex items-center justify-between gap-2">
       <button onclick="shiftDate(-1)" class="w-9 h-9 rounded-xl bg-[#090d16] border border-slate-800 flex items-center justify-center text-slate-300 active:bg-slate-800 text-sm font-bold">
         ◀
@@ -120,7 +137,7 @@
           <div class="flex bg-[#090d16] p-1 rounded-xl border border-slate-800 text-[11px] font-semibold">
             <button id="btnLim950" onclick="setLimitMode(950)" class="px-2.5 py-1 rounded-lg transition">950</button>
             <button id="btnLim1800" onclick="setLimitMode(1800)" class="px-2.5 py-1 rounded-lg transition">1800</button>
-          </div>  
+          </div>
         </div>
 
         <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800/80 text-center">
@@ -146,7 +163,7 @@
       <div class="surface p-3.5 space-y-2.5">
         <div class="flex justify-between items-center">
           <span class="text-xs font-bold text-slate-300">Быстрое добавление</span>
-          <span id="quickTargetDateHint" class="text-[11px] text-blue-400 font-medium">Запись на: Сегодня</span>
+          <span id="quickTargetDateHint" class="text-[11px] text-blue-400 font-medium">На сегодня</span>
         </div>
 
         <div class="grid grid-cols-2 gap-1.5">
@@ -327,7 +344,7 @@
     </nav>
   </div>
 
-  <!-- ==================== НАСТРОЙКИ И БЭКАП ==================== -->
+  <!-- ==================== НАСТРОЙКИ, БЭКАП И АДМИНКА ==================== -->
   <div id="settingsModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4">
     <div class="surface p-5 max-w-sm w-full space-y-4 max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center">
@@ -343,6 +360,23 @@
         </div>
       </div>
 
+      <!-- БЛОК АДМИНА (Виден только аккаунту 72806611324) -->
+      <div id="adminOnlyPanel" class="hidden space-y-2.5 pt-3 border-t border-amber-500/30">
+        <div class="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+          <span>👑 Админ-панель (Только для ID 72806611324)</span>
+        </div>
+        <p class="text-[11px] text-slate-400 leading-relaxed">
+          Введи Telegram ID своего основного аккаунта (или любого человека), чтобы сгенерировать персональный ключ доступа:
+        </p>
+        <div class="flex gap-2">
+          <input type="text" id="targetTgIdInput" placeholder="Telegram ID (напр. 123456789)" class="flex-1 px-3 py-2 text-xs font-mono">
+          <button onclick="generateKeyForUserId()" class="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shrink-0">
+            🔑 Выдать ключ
+          </button>
+        </div>
+        <input type="text" id="generatedKeyResult" readonly placeholder="Тут появится ключ для этого ID..." class="w-full px-3 py-2 text-xs font-mono text-emerald-400 text-center">
+      </div>
+
       <div class="space-y-2 pt-2 border-t border-slate-800">
         <div class="text-xs font-semibold text-slate-300">☁️ Бэкап и перенос</div>
         <div class="grid grid-cols-2 gap-2">
@@ -356,24 +390,12 @@
         </div>
       </div>
 
-      <div class="space-y-2 pt-2 border-t border-slate-800">
-        <div class="text-xs font-semibold text-amber-400">👑 Доступ (Инвайты)</div>
-        <div class="flex gap-2">
-          <input type="text" id="generatedInviteBox" readonly placeholder="Инвайт-ключ..." class="flex-1 px-2.5 py-1.5 text-xs font-mono text-emerald-400">
-          <button onclick="generateInviteTicket()" class="px-3 py-1.5 rounded-xl bg-amber-600 text-white text-xs font-semibold">Создать</button>
-        </div>
-        <div class="flex gap-2">
-          <input type="text" id="customSecretPin" placeholder="Новый мастер-пароль" class="flex-1 px-2.5 py-1.5 text-xs">
-          <button onclick="saveCustomPin()" class="px-3 py-1.5 rounded-xl bg-slate-700 text-white text-xs">Сменить</button>
-        </div>
-      </div>
-
       <div class="pt-2 border-t border-slate-800 space-y-2">
         <button onclick="resetToFactoryNotes()" class="w-full py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
           ↻ Восстановить исходные 8 циклов
         </button>
-        <button onclick="lockSessionNow()" class="w-full py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold">
-          🔒 Заблокировать экран
+        <button onclick="revokeLocalAccess()" class="w-full py-2 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold">
+          🔒 Сбросить доступ на этом устройстве
         </button>
       </div>
     </div>
@@ -382,6 +404,117 @@
   <script>
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
     if (tg) { tg.ready(); tg.expand(); }
+
+    // ==================== СИСТЕМА ДОСТУПА ПО TELEGRAM ID АДМИНА (72806611324) ====================
+    const ADMIN_TG_ID = '72806611324';
+    const AUTH_STORAGE_KEY = 'appBudgetIdAuth_v4';
+
+    function getCurrentTelegramUserId() {
+      if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+        return String(tg.initDataUnsafe.user.id);
+      }
+      // Если открыто вне Telegram (или в браузере), создаем уникальный Device ID, чтобы тоже можно было выдать доступ по нему
+      let devId = localStorage.getItem('appFallbackDeviceId');
+      if (!devId) {
+        devId = 'WEB_' + Math.floor(100000000 + Math.random() * 900000000);
+        localStorage.setItem('appFallbackDeviceId', devId);
+      }
+      return devId;
+    }
+
+    const currentUserId = getCurrentTelegramUserId();
+    document.getElementById('currentUserIdDisplay').textContent = currentUserId;
+
+    function copyMyTgId() {
+      navigator.clipboard.writeText(currentUserId).then(() => showToast('📋 ID скопирован'));
+    }
+
+    // Вычисляет персональный ключ для конкретного Telegram ID
+    async function computeKeyForId(targetId) {
+      const raw = `ALLOW_TG_${String(targetId).trim()}_BY_ADMIN_${ADMIN_TG_ID}_V4`;
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+      const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      return 'KEY-' + hex.slice(0, 14).toUpperCase();
+    }
+
+    function unlockAppUI(isAdmin = false) {
+      document.getElementById('authLockScreen').classList.add('hidden');
+      document.getElementById('mainAppContainer').classList.remove('hidden');
+      if (isAdmin) {
+        document.getElementById('adminCrownBadge').classList.remove('hidden');
+        document.getElementById('adminOnlyPanel').classList.remove('hidden');
+      }
+      renderAll();
+    }
+
+    async function checkAccessOnStart() {
+      // 1. Если зашел сам админ (72806611324) — пускаем мгновенно без вопросов!
+      if (currentUserId === ADMIN_TG_ID) {
+        unlockAppUI(true);
+        return;
+      }
+
+      // 2. Проверяем, был ли уже активирован ключ для этого Telegram ID
+      const expectedKey = await computeKeyForId(currentUserId);
+      const savedLocalKey = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (savedLocalKey === expectedKey) {
+        unlockAppUI(false);
+        return;
+      }
+
+      if (tg && tg.CloudStorage) {
+        tg.CloudStorage.getItem(AUTH_STORAGE_KEY, (err, val) => {
+          if (!err && val === expectedKey) {
+            localStorage.setItem(AUTH_STORAGE_KEY, expectedKey);
+            unlockAppUI(false);
+          }
+        });
+      }
+    }
+
+    async function verifyUserKey() {
+      const inputKey = (document.getElementById('authKeyInput').value || '').trim();
+      if (!inputKey) return;
+
+      // Если ввели сам ID админа на всякий случай для тестирования из браузера с админ-устройства
+      if (inputKey === ADMIN_TG_ID) {
+        unlockAppUI(true);
+        return;
+      }
+
+      const expectedKey = await computeKeyForId(currentUserId);
+      if (inputKey === expectedKey) {
+        localStorage.setItem(AUTH_STORAGE_KEY, expectedKey);
+        if (tg && tg.CloudStorage) {
+          tg.CloudStorage.setItem(AUTH_STORAGE_KEY, expectedKey, () => {});
+        }
+        document.getElementById('authErrorMsg').classList.add('hidden');
+        unlockAppUI(false);
+        showToast('✓ Доступ активирован');
+      } else {
+        document.getElementById('authErrorMsg').classList.remove('hidden');
+      }
+    }
+
+    // Функция в админке: выдает персональный ключ по любому Telegram ID
+    async function generateKeyForUserId() {
+      const targetId = (document.getElementById('targetTgIdInput').value || '').trim();
+      if (!targetId) return alert('Введи Telegram ID пользователя');
+      const key = await computeKeyForId(targetId);
+      document.getElementById('generatedKeyResult').value = key;
+      navigator.clipboard.writeText(key).then(() => {
+        showToast('🔑 Ключ для ID скопирован');
+      });
+    }
+
+    function revokeLocalAccess() {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      if (tg && tg.CloudStorage) tg.CloudStorage.removeItem(AUTH_STORAGE_KEY, () => {});
+      closeSettingsModal();
+      document.getElementById('mainAppContainer').classList.add('hidden');
+      document.getElementById('authLockScreen').classList.remove('hidden');
+      document.getElementById('authKeyInput').value = '';
+    }
 
     // ==================== УМНАЯ РАБОТА С ТЕКУЩЕЙ ДАТОЙ ====================
     function getLocalTodayStr() {
@@ -443,96 +576,6 @@
       }, 1100);
     }
 
-    // ==================== АВТОРИЗАЦИЯ ====================
-    // ==================== КРИПТОГРАФИЧЕСКАЯ АВТОРИЗАЦИЯ (БЕЗ ПАРОЛЕЙ В КОДЕ) ====================
-    const AUTH_STORAGE_KEY = 'appBudgetAuthToken_v2';
-    const SALT = 'tma_sec_v3_';
-    
-    // Здесь хранится ТОЛЬКО SHA-256 хэш. Никаких открытых паролей в коде нет!
-    // Чтобы сменить его на свой: в настройках приложения создай свой хэш и замени эту строчку:
-    const MASTER_HASH = '713bfda78870bf9d1b261f565286f85e97ee614efe5f0faf7c34e7ca4f65baca';
-
-    async function sha256(str) {
-      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    function unlockAppUI() {
-      document.getElementById('authLockScreen').classList.add('hidden');
-      document.getElementById('mainAppContainer').classList.remove('hidden');
-      renderAll();
-    }
-
-    function checkSavedAuth() {
-      if (localStorage.getItem(AUTH_STORAGE_KEY) === 'GRANTED') {
-        unlockAppUI();
-        return;
-      }
-      if (tg && tg.CloudStorage) {
-        tg.CloudStorage.getItem(AUTH_STORAGE_KEY, (err, val) => {
-          if (!err && val === 'GRANTED') {
-            localStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED');
-            unlockAppUI();
-          }
-        });
-      }
-    }
-
-    async function verifyAccessKey() {
-      const input = (document.getElementById('authKeyInput').value || '').trim();
-      if (!input) return;
-
-      const rawHash = await sha256(input);
-      const saltedHash = await sha256(SALT + input);
-      const customPin = localStorage.getItem('appCustomPinHash');
-
-      // Проверка крипто-инвайта: формат ТИКЕТ.ПОДПИСЬ (подпись завязана на MASTER_HASH)
-      let isSignedInvite = false;
-      if (input.includes('.')) {
-        const [tokenPart, sigPart] = input.split('.');
-        if (tokenPart && sigPart && sigPart.length === 12) {
-          const expectedSig = (await sha256(SALT + tokenPart + MASTER_HASH)).slice(0, 12);
-          if (sigPart === expectedSig) isSignedInvite = true;
-        }
-      }
-
-      if (rawHash === MASTER_HASH || saltedHash === MASTER_HASH || (customPin && saltedHash === customPin) || isSignedInvite) {
-        localStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED');
-        if (tg && tg.CloudStorage) tg.CloudStorage.setItem(AUTH_STORAGE_KEY, 'GRANTED', () => {});
-        unlockAppUI();
-      } else {
-        document.getElementById('authErrorMsg').classList.remove('hidden');
-      }
-    }
-
-    // Создает криптографически подписанный инвайт, который невозможно подделать из кода
-    async function generateInviteTicket() {
-      const rand = Math.random().toString(36).substring(2, 10).toUpperCase();
-      const sig = (await sha256(SALT + rand + MASTER_HASH)).slice(0, 12);
-      const ticket = `${rand}.${sig}`;
-      document.getElementById('generatedInviteBox').value = ticket;
-      navigator.clipboard.writeText(ticket).then(() => showToast('🔑 Крипто-инвайт скопирован'));
-    }
-
-    // Генерирует новый хэш для вставки в MASTER_HASH на GitHub
-    async function saveCustomPin() {
-      const pin = (document.getElementById('customSecretPin').value || '').trim();
-      if (pin.length < 4) return alert('Минимум 4 символа');
-      const newSaltedHash = await sha256(SALT + pin);
-      localStorage.setItem('appCustomPinHash', newSaltedHash);
-      document.getElementById('customSecretPin').value = '';
-      navigator.clipboard.writeText(newSaltedHash).then(() => {
-        alert('Хэш твоего нового пароля скопирован в буфер обмена!\n\nЗамени им строчку MASTER_HASH в коде на GitHub — и никто в мире, даже прочитав весь код, никогда не узнает твой пароль.');
-      });
-    }
-
-    function lockSessionNow() {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-      if (tg && tg.CloudStorage) tg.CloudStorage.removeItem(AUTH_STORAGE_KEY, () => {});
-      closeSettingsModal();
-      document.getElementById('mainAppContainer').classList.add('hidden');
-      document.getElementById('authLockScreen').classList.remove('hidden');
-    }
     // ==================== БАЗА ДАННЫХ ====================
     const ORIGINAL_RAW_NOTES = `=== ЦИКЛ 1: 18 дек – 13 янв ===
 18 дек: 58 еда (магазин + заказ рис кур), 18 такси, 23 мелочи
@@ -738,7 +781,6 @@ NSK (150+70), экзамен такси + Мак (85), Бульдак 22, дес
     const CLOUD_CHUNKS = ['appCloud_c0', 'appCloud_c1', 'appCloud_c2', 'appCloud_c3'];
 
     function loadInitialState() {
-      // Миграция со старого ключа v2, если там уже были записи
       const rawV3 = localStorage.getItem(STORAGE_KEY);
       const rawV2 = localStorage.getItem('appBudgetClean_v2');
       const raw = rawV3 || rawV2;
@@ -759,12 +801,10 @@ NSK (150+70), экзамен такси + Мак (85), Бульдак 22, дес
 
     let state = loadInitialState();
 
-    // ==================== НАДЕЖНОЕ ОБЛАЧНОЕ СОХРАНЕНИЕ БЕЗ ЛИМИТА 4096 БАЙТ ====================
     function saveToTelegramCloud() {
       if (!tg || !tg.CloudStorage) return;
       try {
         const activeCycle = getCurrentCycle();
-        // Компактная упаковка записей, чтобы вместить в 4 раза больше данных
         const compactPayload = JSON.stringify({
           u: state.updatedAt || Date.now(),
           a: state.activeCycleId,
@@ -778,7 +818,6 @@ NSK (150+70), экзамен такси + Мак (85), Бульдак 22, дес
           }
         });
 
-        // Разбиваем строку на куски по 3800 символов (обходит лимит 4096 байт в Telegram!)
         const chunkSize = 3800;
         for (let i = 0; i < CLOUD_CHUNKS.length; i++) {
           const part = compactPayload.slice(i * chunkSize, (i + 1) * chunkSize);
@@ -796,7 +835,6 @@ NSK (150+70), экзамен такси + Мак (85), Бульдак 22, дес
         try {
           const data = JSON.parse(joined);
           if (!data || !data.c) return;
-          // Загружаем из облака ТОЛЬКО если облачная версия новее локальной!
           const localTime = state.updatedAt || 0;
           if (data.u && data.u > localTime) {
             const restoredCycle = {
@@ -985,7 +1023,6 @@ NSK (150+70), экзамен такси + Мак (85), Бульдак 22, дес
       const exps = cycle.expenses || [];
       const todayStr = getLocalTodayStr();
 
-      // Отображение выбранной даты
       document.getElementById('quickDate').value = selectedDateStr;
       const pretty = formatPrettyDate(selectedDateStr);
       document.getElementById('prettyDateTitle').textContent = pretty;
@@ -993,14 +1030,11 @@ NSK (150+70), экзамен такси + Мак (85), Бульдак 22, дес
       document.getElementById('quickTargetDateHint').textContent = selectedDateStr === todayStr ? 'На сегодня' : `На: ${pretty}`;
       document.getElementById('lblSelectedDay').textContent = selectedDateStr === todayStr ? 'За сегодня' : 'За выбр. день';
 
-      // Бейдж в шапке
       document.getElementById('activeCycleBadge').textContent = (cycle.shortName || cycle.name) + ' ▾';
 
-      // Переключатель 950 / 1800
       document.getElementById('btnLim950').className = `px-2.5 py-1 rounded-lg transition ${state.monthlyLimit === 950 ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
       document.getElementById('btnLim1800').className = `px-2.5 py-1 rounded-lg transition ${state.monthlyLimit === 1800 ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
 
-      // Селектор циклов
       const cSel = document.getElementById('cycleSelect');
       cSel.innerHTML = state.cycles.map(c => `<option value="${c.id}" ${c.id === cycle.id ? 'selected' : ''}>${c.name}</option>`).join('');
 
@@ -1009,7 +1043,6 @@ NSK (150+70), экзамен такси + Мак (85), Бульдак 22, дес
         return `<button onclick="changeCycle('${c.id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold shrink-0 border ${active ? 'bg-blue-600 border-blue-500 text-white' : 'bg-[#090d16] border-slate-800 text-slate-400'}">${c.shortName || c.name}</button>`;
       }).join('');
 
-      // Подсчеты
       const totalSpent = exps.reduce((s, e) => s + e.amount, 0);
       const balance = state.monthlyLimit - totalSpent;
       const uniqueDays = new Set(exps.map(e => e.date)).size || 1;
@@ -1042,7 +1075,6 @@ NSK (150+70), экзамен такси + Мак (85), Бульдак 22, дес
         vEl.className = 'text-[10px] text-red-400';
       }
 
-      // Селекторы категорий
       const mCat = document.getElementById('manualCat');
       const prevCat = mCat.value;
       mCat.innerHTML = state.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
@@ -1053,7 +1085,6 @@ NSK (150+70), экзамен такси + Мак (85), Бульдак 22, дес
       fCat.innerHTML = `<option value="all">Все темы</option>` + state.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
       fCat.value = prevFilter;
 
-      // Список записей за выбранный день (или последние 5, если за сегодня еще 0 записей)
       const recentTitle = document.getElementById('recentBlockTitle');
       if (dayExpenses.length > 0) {
         recentTitle.textContent = `Записи за ${pretty} (${dayExpenses.length})`;
@@ -1065,7 +1096,6 @@ NSK (150+70), экзамен такси + Мак (85), Бульдак 22, дес
 
       renderHistory();
 
-      // Темы
       const sumAlloc = state.categories.filter(c => c.id !== 'rent').reduce((s, c) => s + c.limit, 0);
       document.getElementById('catTotalAllocated').textContent = `Сумма лимитов: ${sumAlloc} RM`;
       document.getElementById('catsProgressList').innerHTML = state.categories.map(c => {
@@ -1153,9 +1183,9 @@ NSK (150+70), экзамен такси + Мак (85), Бульдак 22, дес
       }).join('');
     }
 
-    // Старт с автоматическим сегодняшним днем
+    // Старт
     setTodayDate();
-    checkSavedAuth();
+    checkAccessOnStart();
     loadFromTelegramCloud();
   </script>
 </body>

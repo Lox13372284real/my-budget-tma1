@@ -85,8 +85,8 @@
     <header class="flex justify-between items-center mb-3">
       <div class="flex items-center gap-2">
         <span class="text-base font-extrabold tracking-tight text-white">⚡ Бюджет</span>
-        <span id="activeCycleBadge" onclick="switchTab('history')" class="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 cursor-pointer">
-          Сен–Окт ▾
+        <span id="activeCycleBadge" onclick="switchTab('history')" class="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-pointer">
+          Октябрь ▾
         </span>
         <span id="adminCrownBadge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
           👑 ADMIN
@@ -128,15 +128,15 @@
       <div class="surface p-4">
         <div class="flex justify-between items-start gap-2">
           <div>
-            <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Остаток периода</span>
-            <div id="uiBalance" class="text-3xl font-black mt-0.5 tracking-tight text-emerald-400">0.0 RM</div>
-            <div id="uiSpentTotal" class="text-xs text-slate-400 mt-0.5">Потрачено: 0 из 950 RM</div>
+            <span class="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Остаток на Октябрь</span>
+            <div id="uiBalance" class="text-3xl font-black mt-0.5 tracking-tight text-emerald-400">+308.5 RM</div>
+            <div id="uiSpentTotal" class="text-xs text-slate-400 mt-0.5">Потрачено: 641.5 из 950 RM</div>
           </div>
-          <!-- 3 режима лимита: 950 (новый план), 1066 (база сен-окт с +66 от квартиры), 1800 (с хатой) -->
+          <!-- 3 режима лимита: 950 (план), 1000 (комфорт), 1800 (с хатой 850) -->
           <div class="flex bg-[#090d16] p-1 rounded-xl border border-slate-800 text-[11px] font-semibold shrink-0">
-            <button id="btnLim950" onclick="setLimitMode(950)" class="px-2 py-1 rounded-lg transition" title="Чистый план 950 RM">950</button>
-            <button id="btnLim1066" onclick="setLimitMode(1066)" class="px-2 py-1 rounded-lg transition" title="База этого месяца 1000+66 RM">1066</button>
-            <button id="btnLim1800" onclick="setLimitMode(1800)" class="px-2 py-1 rounded-lg transition" title="Вместе с квартирой 850 RM">1800</button>
+            <button id="btnLim950" onclick="setLimitMode(950)" class="px-2 py-1 rounded-lg transition">950</button>
+            <button id="btnLim1000" onclick="setLimitMode(1000)" class="px-2 py-1 rounded-lg transition">1000</button>
+            <button id="btnLim1800" onclick="setLimitMode(1800)" class="px-2 py-1 rounded-lg transition">1800</button>
           </div>
         </div>
 
@@ -149,13 +149,19 @@
           <div class="border-x border-slate-800/80">
             <div class="text-[10px] text-slate-400 uppercase">Еда+Метро/д</div>
             <div id="uiAvgClean" class="text-sm font-bold text-emerald-400 mt-0.5">0 RM</div>
-            <div class="text-[10px] text-slate-500">Без Shopee/Такси</div>
+            <div class="text-[10px] text-slate-500">Без разовых</div>
           </div>
           <div>
-            <div class="text-[10px] text-slate-400 uppercase">Лимит/д</div>
+            <div class="text-[10px] text-slate-400 uppercase">Можно/день</div>
             <div id="uiSafeDaily" class="text-sm font-bold text-blue-400 mt-0.5">0 RM</div>
-            <div class="text-[10px] text-slate-500">По остатку</div>
+            <div id="uiDaysLeftSub" class="text-[10px] text-slate-500">До 31 окт</div>
           </div>
+        </div>
+
+        <!-- Мини-памятка по договору аренды -->
+        <div class="mt-3 pt-2.5 border-t border-slate-800/60 flex justify-between items-center text-[11px] text-slate-400">
+          <span>🏠 Октябрь (850 RM) и Свет (50 RM): <b class="text-emerald-400">ОПЛАЧЕНО</b></span>
+          <span>След. хата: <b class="text-amber-300">1–6 Ноя</b></span>
         </div>
       </div>
 
@@ -225,13 +231,13 @@
             <div class="text-[11px] text-slate-300">📦 2кг грудки</div>
             <div class="text-xs font-bold text-lime-400">25.5</div>
           </button>
-          <button onclick="quickAdd('bills', 30, 'Связь (21 число)')" class="quick-btn p-2 text-center">
+          <button onclick="quickAdd('bills', 30, 'Связь')" class="quick-btn p-2 text-center">
             <div class="text-[11px] text-slate-300">📱 Связь</div>
             <div class="text-xs font-bold text-purple-400">30</div>
           </button>
-          <button onclick="quickAdd('bills', 10, 'Электричество')" class="quick-btn p-2 text-center">
-            <div class="text-[11px] text-slate-300">❄️ Свет</div>
-            <div class="text-xs font-bold text-purple-400">10</div>
+          <button onclick="quickAdd('rent', 850, 'Аренда квартиры (до 7 числа)')" class="quick-btn p-2 text-center">
+            <div class="text-[11px] text-slate-300">🏠 Хата</div>
+            <div class="text-xs font-bold text-rose-400">850</div>
           </button>
         </div>
       </div>
@@ -265,9 +271,9 @@
     <div id="tab-history" class="space-y-3.5 hidden">
       <div class="surface p-3.5 space-y-2.5">
         <div class="flex justify-between items-center">
-          <span class="text-xs font-bold text-slate-300">Выбор месяца (цикла)</span>
+          <span class="text-xs font-bold text-slate-300">Выбор месяца</span>
           <button onclick="startNewCyclePrompt()" class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-blue-500/15 text-blue-400 border border-blue-500/30">
-            + Новый цикл (с 21 числа)
+            + Новый месяц (с 1 числа)
           </button>
         </div>
         <select id="cycleSelect" onchange="changeCycle(this.value)" class="w-full px-3 py-2.5 text-xs font-bold text-white"></select>
@@ -302,22 +308,20 @@
       </details>
     </div>
 
-    <!-- ==================== ВКЛАДКА 3: ТЕМЫ И СЦЕНАРИЙ НА 950 RM ==================== -->
+    <!-- ==================== ВКЛАДКА 3: ТЕМЫ И КОНТРАКТ ==================== -->
     <div id="tab-cats" class="space-y-3.5 hidden">
-      <!-- Подсказка идеального сценария -->
-      <div class="surface p-3.5 border-l-4 border-l-emerald-500 text-xs space-y-1">
-        <div class="font-bold text-white">🎯 Твой идеальный сценарий на 950 RM/мес:</div>
-        <div class="text-slate-400 leading-relaxed">
-          • <b>Еда (450) + Грудка/база (110) = 560 RM</b> (~18.5 RM/д)<br>
-          • <b>Перекусы/вода/бананы = 150 RM</b> (5 RM/д)<br>
-          • <b>Метро (130) + Связь и Свет (45) + Быт (65) = 240 RM</b><br>
-          👉 В учебный день: <b>11 уник + 4.2 грудка дома + 5 вода/банан + 6.9 метро = 27.1 RM!</b>
+      <div class="surface p-3.5 border-l-4 border-l-emerald-500 text-xs space-y-1.5">
+        <div class="font-bold text-white">📄 По твоему договору I ROOMZ (M Vertica):</div>
+        <div class="text-slate-300 leading-relaxed">
+          • <b>Сентябрь (21–30 сен):</b> стоил <b>283.33 RM</b> (Pro Rate) — оплачено.<br>
+          • <b>Октябрь (1–31 окт):</b> <b>850 RM</b> + <b>50 RM свет</b> — уже оплачено 22 сентября!<br>
+          • <b>Следующая оплата 850 RM (за Ноябрь):</b> строго <b>с 1 по 6 ноября</b> (после 7-го числа штраф 50 RM!).
         </div>
       </div>
 
       <div class="surface p-3.5">
         <div class="flex justify-between items-center mb-3">
-          <span class="text-xs font-bold text-slate-300">Расходы по темам</span>
+          <span class="text-xs font-bold text-slate-300">Темы на месяц (План 950 RM)</span>
           <span id="catTotalAllocated" class="text-[11px] text-emerald-400 font-semibold"></span>
         </div>
         <div id="catsProgressList" class="space-y-2.5"></div>
@@ -363,12 +367,12 @@
         <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white text-lg">✕</button>
       </div>
 
-      <!-- КНОПКА БЫСТРОГО ИСПРАВЛЕНИЯ БАЗЫ ДО -129.5 RM -->
+      <!-- КНОПКА ОБНОВЛЕНИЯ ПОД ДОГОВОР АРЕНДЫ (1-31 ОКТЯБРЯ) -->
       <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
-        <div class="text-xs font-bold text-emerald-300">🛠 Выровнять баланс под заметки (-129.5 RM)</div>
-        <p class="text-[11px] text-slate-300">Нажми эту кнопку один раз, чтобы убрать старые дубликаты, установить лимиты тем ровно на 950 RM и выровнять баланс за 16 октября в <b>-129.5 RM</b>:</p>
+        <div class="text-xs font-bold text-emerald-300">📄 Выровнять по договору (1–31 Октября)</div>
+        <p class="text-[11px] text-slate-300">Разделяет сентябрь (21–30 сен) и октябрь (1–31 окт) по твоему договору. За октябрь потрачено <b>641.5 RM</b>, остаток от 950 RM: <b>+308.5 RM в плюсе!</b></p>
         <button onclick="resetToFactoryNotes()" class="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">
-          ✓ Выровнять базу (-129.5 RM и лимит 950)
+          ✓ Применить расчет по договору (+308.5 RM)
         </button>
       </div>
 
@@ -380,7 +384,7 @@
         </div>
       </div>
 
-      <!-- БЛОК АДМИНА (Виден только аккаунту 72806611324) -->
+      <!-- БЛОК АДМИНА (Виден только аккаунту 7280661324) -->
       <div id="adminOnlyPanel" class="hidden space-y-2.5 pt-3 border-t border-amber-500/30">
         <div class="text-xs font-bold text-amber-400">👑 Админ-панель (ID 7280661324)</div>
         <div class="flex gap-2">
@@ -417,7 +421,7 @@
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
     if (tg) { tg.ready(); tg.expand(); }
 
-    // ==================== СИСТЕМА ДОСТУПА ПО TELEGRAM ID АДМИНА (72806611324) ====================
+    // ==================== СИСТЕМА ДОСТУПА ПО TELEGRAM ID АДМИНА (7280661324) ====================
     const ADMIN_TG_ID = '7280661324';
     const AUTH_STORAGE_KEY = 'appBudgetIdAuth_v4';
 
@@ -578,56 +582,52 @@
       }, 1100);
     }
 
-    // ==================== БАЗА ДАННЫХ (ВЫРОВНЕНА РОВНО ПОД -129.5 RM И ЛИМИТ 950 RM) ====================
-    const ORIGINAL_RAW_NOTES = `=== ЦИКЛ 8: 21 сен – 20 окт (База 1000 + 66 с квартиры = 1066 RM) ===
-21 сен: 20 еда, 10 такси = 30 (ост 970 + 66 с квартиры = 1036)
-22 сен: 90 для дома (пакеты, салфетки, миккимаус) (ост 946)
-23 сен: 46 такси (ост 900)
-24 сен: 34 такси, 10.5 уник, 3.5 попить, 15 бутеры+бульдак = 64 + 130 заказ Shopee (ост 706)
-25 сен: 29 такси (ост 678)
-26 сен: 27 еда
-27 сен: 12 печенье и 2 онигири (ост 639)
-28 сен: 59 кейс для ноута, 19 такси, 10.5 уник, 3.7 метро, 2 попить (ост 544)
-29 сен: 6.9 метро, 13.5 еда, 21 печеньки, 2 онигири, курица с рисом (ост 507)
-30 сен: 20 (2 онигири, курица с рисом) (ост 487)
-1 окт: 6.9 метро, 11 еда, 2 вода, 16 рис курица печенья = 36 (ост 451)
-2 окт: 11 еда, 6.9 метро, 10 курица рис = 28 (ост 423)
-3 окт: 8 онигири, 22 еда, 130 NSK, 10 весы = 170 (ост 253)
-4 окт: Нутелла, чипсы, новый вакууматор = 23 списано (ост 230)
-5 окт: 6.9 метро, 22 еда уник (11*2) = 29 (ост 201)
-6 окт: 6.9 метро, 11 еда, 13 такси в банк = 31 (ост 170)
+    // ==================== БАЗА ДАННЫХ ПО ДОГОВОРУ АРЕНДЫ (1–31 ОКТЯБРЯ ОТДЕЛЬНО ОТ СЕНТЯБРЯ!) ====================
+    const ORIGINAL_RAW_NOTES = `=== РАЗБОР КВИТАНЦИЙ I ROOMZ (M VERTICA) ===
+• 21-30 Сентября (10 дней): 283.33 RM (Pro Rate) — ОПЛАЧЕНО 22 сен.
+• 1-31 Октября (весь месяц): 850.00 RM — ОПЛАЧЕНО 22 сен!
+• Предоплата за свет: 50.00 RM — ОПЛАЧЕНО 22 сен!
+• Возвратные депозиты: 850 RM (Security) + 100 RM (Access Card) + 200 RM (Agreement).
+• СЛЕДУЮЩАЯ ОПЛАТА ХАТЫ (850 RM за Ноябрь): строго с 1 по 6 ноября (после 7-го числа штраф 50 RM!).
+
+=== ОКТЯБРЬ (1 – 16 окт): Потрачено всего 641.5 RM из 950 RM (ОСТАТОК +308.5 RM!) ===
+1 окт: 6.9 метро, 11 еда, 2 вода, 16 рис курица печенья = 36
+2 окт: 11 еда, 6.9 метро, 10 курица рис = 28
+3 окт: 8 онигири, 22 еда, 130 NSK, 10 весы = 170
+4 окт: Нутелла, чипсы, новый вакууматор = 38 (по записи списано 23)
+5 окт: 6.9 метро, 22 еда уник (11*2) = 29
+6 окт: 6.9 метро, 11 еда, 13 такси в банк = 31
 7 окт: 39 (5 кг риса) + 7 метро = 46
-8 окт: 6.9 метро + 11 еда = 18, 20 хранение риса + 20 Нутелла = 40 (ост 57)
-9 окт: 17 (рис курица + 2 печенья) (ост 40)
-10-11 окт: 17 + 30 еда (ост -7)
-12 окт: 30 связь, 11 еда, 7 метро = 48 (ост -55)
-13 окт: 23.5 (2 курицы с рисом по 7 / бургеры) + 9.5 шоколадка = 33
-14 окт: 20 (2 риса с курицей) + 3 попить = 23 (ост -77)
-15 окт: 5 жвачка, 11 еда уник, 7 метро = 23 (ост -100)
-16 окт: 20 (2 риса курица), 5.5 бананы, 4 печенья = 29.5 (ост -129.5)`;
+8 окт: 6.9 метро + 11 еда = 18, 20 хранение риса + 20 Нутелла = 40
+9 окт: 17 (рис курица + 2 печенья)
+10-11 окт: 17 + 30 еда
+12 окт: 30 связь, 11 еда, 7 метро = 48
+13 окт: 14 (2 курицы с рисом по 7) + 9.5 шоколадка = 23.5
+14 окт: 20 (2 риса с курицей) + 3 попить = 23
+15 окт: 5 жвачка, 11 еда уник, 7 метро = 23
+16 окт: 20 (2 риса курица), 5.5 бананы, 4 печенья = 29.5`;
 
     const FACTORY_DATA = {
-      updatedAt: 1760670000000,
-      activeCycleId: 'c_sep_oct',
-      monthlyLimit: 1066, // 1000 + 66 с квартиры (при переключении на 950 покажет чистый план 950)
+      updatedAt: 1760695000000,
+      activeCycleId: 'c_oct_2026',
+      monthlyLimit: 950,
       rawNotes: ORIGINAL_RAW_NOTES,
-      // Сумма лимитов всех рабочих тем без квартиры = РОВНО 950 RM!
       categories: [
         { id: 'food', name: 'Готовая еда и Аэрогриль (4.2 / 7 / 10 / 11 RM)', limit: 450, color: '#10b981' },
         { id: 'nsk', name: 'Закупка мяса и базы (Грудка 25.5, рис, NSK)', limit: 110, color: '#3b82f6' },
         { id: 'snacks', name: 'Вода, бананы, печенье, онигири, сладкое', limit: 150, color: '#f59e0b' },
         { id: 'transport', name: 'Метро (6.9 RM) и редкое Такси', limit: 130, color: '#6366f1' },
-        { id: 'bills', name: 'Связь 21-го (30) + Свет (10–15)', limit: 45, color: '#8b5cf6' },
+        { id: 'bills', name: 'Связь (30 RM) + Свет (уже 50 RM на счету)', limit: 45, color: '#8b5cf6' },
         { id: 'oneoff', name: 'Быт и разовые покупки (Shopee)', limit: 65, color: '#ec4899' },
-        { id: 'rent', name: 'Квартира 22-го числа (850 RM)', limit: 850, color: '#f43f5e' }
+        { id: 'rent', name: 'Квартира (до 7-го числа месяца: 850 RM)', limit: 850, color: '#f43f5e' }
       ],
       cycles: [
         {
-          id: 'c_sep_oct',
-          name: '21 Сен – 20 Окт 2026',
-          shortName: 'Сен–Окт',
-          limit: 1066,
-          // Сумма всех записей ниже = ровно 1195.5 RM (1066 - 1195.5 = -129.5 RM!)
+          id: 'c_oct_2026',
+          name: 'Октябрь 2026 (1 – 31 Окт по договору)',
+          shortName: 'Окт 2026',
+          limit: 950,
+          // Все траты строго с 1 по 16 октября = 641.5 RM (Остаток от 950 RM = +308.5 RM!)
           expenses: [
             { id: 'e28', date: '2026-10-16', categoryId: 'food', amount: 20, note: '2 риса с курицей (20)' },
             { id: 'e27_2', date: '2026-10-16', categoryId: 'snacks', amount: 9.5, note: 'Бананы (5.5) + печенье (4)' },
@@ -635,7 +635,7 @@
             { id: 'e27_0', date: '2026-10-15', categoryId: 'transport', amount: 7, note: 'Метро (7)' },
             { id: 'e26_9', date: '2026-10-15', categoryId: 'snacks', amount: 5, note: 'Жвачка (5)' },
             { id: 'e26', date: '2026-10-14', categoryId: 'food', amount: 23, note: '2 риса с курицей (20) + попить (3)' },
-            { id: 'e25', date: '2026-10-13', categoryId: 'food', amount: 14, note: '2 курицы с рисом по 7 / бургеры' },
+            { id: 'e25', date: '2026-10-13', categoryId: 'food', amount: 23.5, note: '2 курицы с рисом по 7 / бургеры' },
             { id: 'e24', date: '2026-10-13', categoryId: 'snacks', amount: 9.5, note: 'Шоколадка в дальнем магазе' },
             { id: 'e23', date: '2026-10-12', categoryId: 'bills', amount: 30, note: 'Мобильная связь' },
             { id: 'e22', date: '2026-10-12', categoryId: 'food', amount: 11, note: 'Еда в унике' },
@@ -650,11 +650,19 @@
             { id: 'e13', date: '2026-10-07', categoryId: 'transport', amount: 7, note: 'Метро' },
             { id: 'e12', date: '2026-10-06', categoryId: 'transport', amount: 31, note: 'Метро (6.9), еда уник (11), такси в банк (13)' },
             { id: 'e11', date: '2026-10-05', categoryId: 'food', amount: 29, note: 'Еда уник 11×2 (22) + метро (6.9)' },
-            { id: 'e10', date: '2026-10-04', categoryId: 'oneoff', amount: 23, note: 'Вакууматор, Нутелла, чипсы (по остатку)' },
+            { id: 'e10', date: '2026-10-04', categoryId: 'oneoff', amount: 23, note: 'Вакууматор, Нутелла, чипсы' },
             { id: 'e9', date: '2026-10-03', categoryId: 'nsk', amount: 130, note: 'Закупка NSK' },
             { id: 'e8', date: '2026-10-03', categoryId: 'snacks', amount: 40, note: 'Онигири (8), еда (22) + весы (10)' },
             { id: 'e7', date: '2026-10-02', categoryId: 'food', amount: 28, note: 'Еда уник (11), курица рис (10), метро (6.9)' },
-            { id: 'e6', date: '2026-10-01', categoryId: 'food', amount: 36, note: 'Метро (6.9), еда (11), вода (2), рис курица и печенья (16)' },
+            { id: 'e6', date: '2026-10-01', categoryId: 'food', amount: 36, note: 'Метро (6.9), еда (11), вода (2), рис курица и печенья (16)' }
+          ]
+        },
+        {
+          id: 'c_sep_prorate',
+          name: '21 – 30 Сен 2026 (Заезд + Обустройство)',
+          shortName: '21–30 Сен',
+          limit: 600,
+          expenses: [
             { id: 'e5', date: '2026-09-30', categoryId: 'food', amount: 20, note: '2 онигири, курица с рисом' },
             { id: 'e4', date: '2026-09-29', categoryId: 'food', amount: 37, note: 'Метро (6.9), еда (13.5), печеньки, онигири, курица с рисом' },
             { id: 'e3', date: '2026-09-28', categoryId: 'oneoff', amount: 59, note: 'Кейс для ноутбука' },
@@ -754,8 +762,8 @@
       ]
     };
 
-    const STORAGE_KEY = 'appBudgetClean_v4';
-    const CLOUD_CHUNKS = ['appCloud_v4_0', 'appCloud_v4_1', 'appCloud_v4_2', 'appCloud_v4_3'];
+    const STORAGE_KEY = 'appBudgetClean_v5';
+    const CLOUD_CHUNKS = ['appCloud_v5_0', 'appCloud_v5_1', 'appCloud_v5_2', 'appCloud_v5_3'];
 
     function loadInitialState() {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -914,7 +922,7 @@
     }
 
     function startNewCyclePrompt() {
-      const name = prompt('Название нового периода (лимит 950 RM):', '21 Окт – 20 Ноя 2026');
+      const name = prompt('Название нового месяца (лимит 950 RM):', 'Ноябрь 2026 (1 – 30 Ноя)');
       if (!name) return;
       const newId = 'c_' + Date.now();
       state.cycles.unshift({ id: newId, name, shortName: name.slice(0, 10), limit: 950, expenses: [] });
@@ -989,7 +997,7 @@
       state = JSON.parse(JSON.stringify(FACTORY_DATA));
       saveState();
       closeSettingsModal();
-      showToast('✓ База выровнена (-129.5 RM)');
+      showToast('✓ Октябрь: +308.5 RM в плюсе!');
     }
 
     function renderAll() {
@@ -1007,7 +1015,7 @@
       document.getElementById('activeCycleBadge').textContent = (cycle.shortName || cycle.name) + ' ▾';
 
       document.getElementById('btnLim950').className = `px-2 py-1 rounded-lg transition ${state.monthlyLimit === 950 ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
-      document.getElementById('btnLim1066').className = `px-2 py-1 rounded-lg transition ${state.monthlyLimit === 1066 ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
+      document.getElementById('btnLim1000').className = `px-2 py-1 rounded-lg transition ${state.monthlyLimit === 1000 ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
       document.getElementById('btnLim1800').className = `px-2 py-1 rounded-lg transition ${state.monthlyLimit === 1800 ? 'bg-blue-600 text-white' : 'text-slate-400'}`;
 
       const cSel = document.getElementById('cycleSelect');
@@ -1020,16 +1028,20 @@
 
       const totalSpent = exps.reduce((s, e) => s + e.amount, 0);
       const balance = state.monthlyLimit - totalSpent;
-      const uniqueDays = new Set(exps.map(e => e.date)).size || 1;
-      const daysLeft = Math.max(1, 30 - uniqueDays);
-      const safeDaily = Math.max(0, balance / daysLeft);
 
-      // Чистый расход на жизнь (без разовых покупок Shopee/быта и без сентябрьского такси)
-      const nonRoutine = exps.filter(e => e.categoryId === 'oneoff' || e.categoryId === 'rent' || (e.categoryId === 'transport' && e.amount >= 19)).reduce((s, e) => s + e.amount, 0);
+      // Считаем сколько дней осталось до конца текущего месяца (31 окт)
+      const now = new Date();
+      const daysInCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysRemainingInMonth = Math.max(1, daysInCurrentMonth - now.getDate() + 1);
+      const safeDaily = Math.max(0, balance / daysRemainingInMonth);
+      document.getElementById('uiDaysLeftSub').textContent = `На ${daysRemainingInMonth} дн. мес.`;
+
+      const uniqueDays = new Set(exps.map(e => e.date)).size || 1;
+      const nonRoutine = exps.filter(e => e.categoryId === 'oneoff' || e.categoryId === 'rent' || e.categoryId === 'nsk').reduce((s, e) => s + e.amount, 0);
       const cleanAvg = (totalSpent - nonRoutine) / uniqueDays;
 
       const balEl = document.getElementById('uiBalance');
-      balEl.textContent = `${balance.toFixed(1)} RM`;
+      balEl.textContent = `${balance >= 0 ? '+' : ''}${balance.toFixed(1)} RM`;
       balEl.className = `text-3xl font-black mt-0.5 tracking-tight ${balance >= 0 ? 'text-emerald-400' : 'text-red-400'}`;
       document.getElementById('uiSpentTotal').textContent = `Потрачено: ${totalSpent.toFixed(1)} из ${state.monthlyLimit} RM`;
       document.getElementById('uiSafeDaily').textContent = `${safeDaily.toFixed(1)} RM`;
@@ -1040,8 +1052,8 @@
       document.getElementById('uiDaySpent').textContent = `${daySpent.toFixed(1)} RM`;
 
       const vEl = document.getElementById('uiDayVerdict');
-      if (daySpent <= 31) {
-        vEl.textContent = '🟢 В плане ≤31';
+      if (daySpent <= 30) {
+        vEl.textContent = '🟢 В плане ≤30';
         vEl.className = 'text-[10px] text-emerald-400';
       } else if (daySpent <= 38) {
         vEl.textContent = '🟡 Средне';
@@ -1151,7 +1163,7 @@
           <div class="surface p-3 space-y-1.5">
             <div class="flex justify-between items-center text-[11px] font-bold text-slate-400 px-1">
               <span>📅 ${formatPrettyDate(d)}</span>
-              <span class="${dayTotal <= 31 ? 'text-emerald-400' : 'text-slate-200'}">За день: ${dayTotal.toFixed(1)} RM</span>
+              <span class="${dayTotal <= 30 ? 'text-emerald-400' : 'text-slate-200'}">За день: ${dayTotal.toFixed(1)} RM</span>
             </div>
             ${dayItems.map(item => renderExpenseRow(item)).join('')}
           </div>
